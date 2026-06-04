@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lebanese-math-coach"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    # Web framework
+    "fastapi==0.115.*",
+    "uvicorn[standard]>=0.30",
+    # Database
+    "sqlalchemy[asyncio]==2.0.*",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "pgvector>=0.3",
+    # Auth
+    "fastapi-users[sqlalchemy]==13.*",
+    # AI / LLM
+    "anthropic>=0.40",
+    "voyageai>=0.3",
+    # Infrastructure
+    "redis[hiredis]>=5.0",
+    "minio>=7.2",
+    "hvac>=2.3",
+    # Data processing
+    "pdfplumber>=0.11",
+    # Validation
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "ingestion"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
