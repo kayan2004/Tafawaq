@@ -41,3 +41,9 @@ alembic/versions/__pycache__/
 
 # Vault (never commit actual tokens)
 *.vault-token
+
+# Exam PDFs (large binaries — tracked in MinIO, not Git)
+Math_GS_Exams_English/
+
+# Ingestion pipeline checkpoints (local dev only — can be large due to embeddings)
+.ingestion_cache/
