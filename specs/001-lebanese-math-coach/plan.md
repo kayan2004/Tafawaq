@@ -17,12 +17,14 @@ The backend is a FastAPI service following the constitution's five-layer archite
 (api/services/repositories/domain/infra), backed by PostgreSQL 16 + pgvector for embeddings and
 structured data, Redis 7 for session state, MinIO for PDF storage, and HashiCorp Vault for all
 secrets. The frontend is a React 18 + Vite + TypeScript SPA with KaTeX math rendering and SSE
-streaming for all AI responses. An offline ingestion pipeline (not a runtime feature) processes 75
+streaming for all AI responses. An offline ingestion pipeline (not a runtime feature) processes 20
 past official English-track GS Math exams from Apelr into pgvector chunks tagged by claude-haiku.
 
 ## Technical Context
 
 **Language/Version**: Python 3.12 (backend), TypeScript 5.x (frontend)
+
+**Package Manager**: uv (Python), npm (frontend)
 
 **Primary Dependencies**:
 - Backend: FastAPI 0.115, SQLAlchemy 2.0 async, fastapi-users 13.x, anthropic SDK,
@@ -209,13 +211,13 @@ dynamic guardrails, auth — drop in that order and document in this section.
 
 | Task | Deliverable |
 |---|---|
-| `ingestion/pdf_extractor.py` — pdfplumber text-only extraction | Text extracted from all 75 PDFs |
+| `ingestion/pdf_extractor.py` — pdfplumber text-only extraction | Text extracted from all 20 PDFs |
 | `ingestion/chunker.py` — exercise-level chunking | One chunk per complete exercise |
 | `ingestion/tagger.py` — claude-haiku topic/subtopic/question_type tagging | All chunks tagged |
 | `ingestion/embedder.py` — voyage-large-2 batch embed + pgvector INSERT | Chunks stored with exercise_id |
 | topic_stats populated | `SELECT COUNT(*) FROM topic_stats` returns ~12 rows |
 
-**Checkpoint**: `python -m ingestion.pipeline` completes → `SELECT COUNT(*) FROM chunks` ~1800+ rows.
+**Checkpoint**: `python -m ingestion.pipeline` completes → `SELECT COUNT(*) FROM chunks` ~115 rows (19 exams × ~6 exercises each).
 
 ---
 

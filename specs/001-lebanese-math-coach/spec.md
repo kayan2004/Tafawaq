@@ -360,7 +360,7 @@ When the student returns to an exam-related question, normal responses resume.
   required from the student side (the AI interprets plain-text math expressions).
 - The platform supports the **English-track** Lebanese GS Math exam only; the French-track exam
   is out of scope for the initial version.
-- The 75 past official English-track exams (2000–2026) with answer keys have been legally
+- The 20 past official English-track exams with answer keys have been legally
   obtained from Apelr and are available for ingestion before the platform launches.
 - The curriculum JSON defining in-scope and out-of-scope topics for the current academic year
   (2024–2025) is manually created and maintained by the platform operator (Kayan Abdulbaki);

@@ -8,13 +8,24 @@ ingestion pipeline works before running the app.
 ## Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose v2) installed and running
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (`winget install astral-sh.uv` on Windows, or `pip install uv`)
 - Git repository cloned
 - Port availability: 8000 (API), 5173 (frontend dev), 5432 (Postgres), 6379 (Redis),
   9000/9001 (MinIO), 8200 (Vault)
 
 ---
 
-## 1. Configure environment
+## 1. Install Python dependencies
+
+```bash
+uv sync
+```
+
+This creates a `.venv/` in the repo root and installs all backend dependencies from `pyproject.toml`.
+
+---
+
+## 2. Configure environment
 
 ```bash
 cp .env.example .env
@@ -28,11 +39,11 @@ VAULT_TOKEN=dev-root-token
 ```
 
 All other credentials (Anthropic API key, Voyage AI key, DB password, MinIO access key) are
-loaded into Vault in step 3.
+loaded into Vault in step 4.
 
 ---
 
-## 2. Start infrastructure services
+## 3. Start infrastructure services
 
 ```bash
 docker-compose up -d db redis minio vault
@@ -47,7 +58,7 @@ docker-compose ps
 
 ---
 
-## 3. Seed Vault with application secrets
+## 4. Seed Vault with application secrets
 
 ```bash
 docker-compose run --rm vault-seed
@@ -65,7 +76,7 @@ docker-compose run --rm vault sh -c \
 
 ---
 
-## 4. Run database migrations
+## 5. Run database migrations
 
 ```bash
 docker-compose run --rm migrate
@@ -75,7 +86,7 @@ docker-compose run --rm migrate
 
 ---
 
-## 5. Start the API
+## 6. Start the API
 
 ```bash
 docker-compose up api
@@ -95,7 +106,7 @@ curl http://localhost:8000/health
 
 ---
 
-## 6. Start the frontend (development)
+## 7. Start the frontend (development)
 
 ```bash
 cd frontend
@@ -106,45 +117,44 @@ npm run dev
 
 ---
 
-## 7. Run the ingestion pipeline (offline — run once before first use)
+## 8. Run the ingestion pipeline (offline — run once before first use)
 
-The ingestion pipeline processes past exam PDFs from MinIO into pgvector. It is not a runtime
-service — run it once after the database is migrated.
+The ingestion pipeline processes past exam PDFs into MinIO and then into pgvector. It is not a
+runtime service — run it once after the database is migrated. The 20 PDFs are already in
+`Math_GS_Exams_English/` at the repo root; no separate upload step is needed.
 
-**Step 1: Upload PDFs to MinIO**
-
-```bash
-# Copy your downloaded Apelr PDFs into a local directory, then:
-docker-compose run --rm minio-seed
-# Uploads all PDFs from ./data/pdfs/ to the MinIO bucket "past-exams"
-```
-
-**Step 2: Run ingestion**
+The pipeline uploads the PDFs to the MinIO `past-exams` bucket automatically on first run, then
+extracts, chunks, tags, and embeds them.
 
 ```bash
-docker-compose run --rm api python -m ingestion.pipeline
+# Ensure db and minio are running (api not required for this step)
+docker compose up -d db minio
+
+# Run the pipeline locally (reads PDF dir, writes to db + minio)
+uv run --env-file .env python -m ingestion.pipeline --pdf-dir Math_GS_Exams_English
+
 # Expected output:
-# [ingestion] Processing GS_Math_2024_1_En.pdf...
-# [ingestion] Extracted 23 chunks
-# [ingestion] Tagged 23 chunks via claude-haiku
-# [ingestion] Embedded 23 chunks via voyage-large-2
-# [ingestion] Stored 23 chunks in pgvector
+# [ingestion] Processing Math_GS_English_2024_Session1.pdf...
+# [ingestion] Extracted ~25 chunks
+# [ingestion] Tagged 25 chunks via claude-haiku
+# [ingestion] Embedded 25 chunks via voyage-large-2
+# [ingestion] Stored 25 chunks in pgvector
 # [ingestion] Updated topic_stats (12 topics)
 # ...
-# [ingestion] Complete: 75 exams, 1,847 chunks total
+# [ingestion] Complete: 20 exams, ~115 chunks total
 ```
 
 Verify:
 ```bash
-docker-compose exec db psql -U postgres -d lebanese_math \
+docker compose exec db psql -U postgres -d lebanese_math \
   -c "SELECT COUNT(*) FROM chunks; SELECT COUNT(*) FROM topic_stats;"
-# chunks: ~1800–2000 rows
+# chunks: ~115 rows
 # topic_stats: ~10–15 rows
 ```
 
 ---
 
-## 8. End-to-end smoke test
+## 9. End-to-end smoke test
 
 ```bash
 # Register a student
@@ -190,10 +200,10 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/topics/stats
 ## Common issues
 
 **API exits immediately at startup**: Vault is unreachable. Check `docker-compose ps vault`
-and ensure the vault seed ran successfully in step 3.
+and ensure the vault seed ran successfully in step 4.
 
-**Chunks table empty after ingestion**: PDFs were not uploaded to MinIO (step 7, step 1).
-Run `docker-compose run --rm minio-seed` and then re-run the pipeline.
+**Chunks table empty after ingestion**: PDFs were not in MinIO when the pipeline ran (step 8).
+Re-run `uv run --env-file .env python -m ingestion.pipeline --pdf-dir Math_GS_Exams_English`.
 
 **KaTeX not rendering in frontend**: Confirm the `frontend/` dev server is running on port 5173
 and that the Vite proxy config points to `http://localhost:8000` for API calls.

@@ -75,7 +75,7 @@ Explicit Redis TTLs prevent unbounded memory growth and orphaned session keys.
 Users MUST never see Python stack traces, SQLAlchemy errors, or raw exception messages. All
 unhandled exceptions MUST be caught at the API boundary, logged internally with a `request_id`,
 and returned to the client as structured JSON: `{"error": "<human message>", "request_id": "<uuid>"}`.
-The domain exception hierarchy (e.g., `ExamNotFound`, `VaultUnavailable`, `OffTopicSession`) MUST
+The domain exception hierarchy (e.g., `ExamNotFound`, `VaultUnavailable`, `OffTopicBlocked`) MUST
 be defined in `domain/exceptions.py` and mapped to HTTP status codes exclusively inside `api/`
 exception handlers. Services and repositories MUST raise domain exceptions only — never
 `HTTPException`.

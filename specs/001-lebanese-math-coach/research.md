@@ -63,7 +63,7 @@ WITH (m = 16, ef_construction = 64);
 distance (1 - cosine_similarity), so ascending ORDER BY returns most similar first.
 
 **Alternative rejected**: Exact scan (`<->` L2) — slower at scale; IVFFlat — requires knowing
-`nlist` in advance; not appropriate for 75-exam archive size.
+`nlist` in advance; not appropriate for 20-exam archive size.
 
 ---
 
