@@ -123,31 +123,77 @@ any RAG feature (Phase 4+) can work.
 
 ---
 
+## Plan Phase 3 — RAG Retrieval + Topic Analytics
+
+**Purpose**: Expose the ingested chunks to the API via pgvector cosine similarity search (US3)
+and pure-SQL topic frequency analytics (US4). Both depend on Phase 2 ingestion completing first.
+All Phase 3 endpoints return standard JSON — no streaming.
+
+**API surface**: `POST /questions/retrieve` (US3), `GET /topics/stats` (US4),
+`GET /topics/{topic}/questions` (US4).
+
+### US3 — Past Question Retrieval
+
+- [X] T032 [P] [US3] Implement app/infra/embeddings/voyage.py: define embed_text(text: str, api_key: str) → list[float] using voyageai.Client(api_key=api_key).embed([text], model="voyage-large-2", input_type="query"); wrap voyageai.APIError in EmbeddingServiceUnavailable from app/domain/exceptions.py; also define embed_batch(texts: list[str], api_key: str) → list[list[float]] with input_type="document" for future ingestion use
+
+- [X] T033 [P] [US3] Implement app/repositories/chunk_repo.py: use asyncpg.Connection directly (not SQLAlchemy — pgvector <=> operator works cleanly with asyncpg); implement cosine_similarity_search(conn: asyncpg.Connection, embedding: list[float], topic: str | None, question_type: str | None, year_from: int | None, year_to: int | None, limit: int = 10) → list[asyncpg.Record]; query: SELECT id, year, session, exercise_id, topic, subtopic, question_type, marks, content, 1 - (embedding <=> $1::vector) AS similarity FROM chunks WHERE source_type = 'past_exam' AND ($2::text IS NULL OR topic ILIKE $2) AND ($3::text IS NULL OR question_type = $3) AND ($4::int IS NULL OR year >= $4) AND ($5::int IS NULL OR year <= $5) ORDER BY embedding <=> $1::vector LIMIT $6; call await pgvector.asyncpg.register_vector(conn) at start of function; implement get_answer_key(conn: asyncpg.Connection, year: int, session: int, exercise_id: int) → str | None: SELECT content FROM chunks WHERE source_type = 'answer_key' AND year = $1 AND session = $2 AND exercise_id = $3 LIMIT 1
+
+- [X] T034 [US3] Implement app/services/retrieval_service.py: implement retrieve_past_questions(query: str, topic: str | None, question_type: str | None, year_from: int | None, year_to: int | None, limit: int, secrets: AppSecrets, conn: asyncpg.Connection) → list[PastQuestion]; call embed_text(query, secrets.voyage_api_key) to embed the query string; call chunk_repo.cosine_similarity_search(conn, embedding, topic, question_type, year_from, year_to, limit); for each returned row call chunk_repo.get_answer_key(conn, row["year"], row["session"], row["exercise_id"]); build and return list[PastQuestion] domain models (chunk_id=UUID(row["id"]), year, session, topic, subtopic, question_type, marks, content, answer=answer_content); catch voyageai.APIError and raise EmbeddingServiceUnavailable
+
+- [X] T035 [US3] Create app/api/routers/questions.py: define QuestionRetrieveRequest(BaseModel) with fields query: str, topic: str | None = None, question_type: str | None = None, year_from: int | None = None, year_to: int | None = None, limit: int = Field(default=10, ge=1, le=50); router = APIRouter(prefix="/questions", tags=["questions"]); POST /retrieve endpoint: depends on current_active_user, get_secrets(), and get_db_conn() from app/api/dependencies.py (inject asyncpg.Connection via Depends — do NOT call asyncpg.connect() directly inside the handler); call retrieval_service.retrieve_past_questions(conn=conn, ...); return {"total_returned": len(results), "questions": [q.model_dump() for q in results]} or {"total_returned": 0, "questions": [], "suggestion": "No past questions found for this query. Try broadening the year range or topic."} when empty; NOTE: FR-011 natural-language intent extraction via Claude agent tool is deferred to Phase 4 — Phase 3 retrieval uses semantic embedding similarity only
+
+### US4 — Topic Frequency Analytics
+
+- [X] T036 [P] [US4] Implement app/repositories/topic_stats_repo.py: implement get_all_topic_stats(session: AsyncSession) → list[TopicStatsORM] using select(TopicStatsORM).order_by(TopicStatsORM.appearances.desc()); implement get_questions_by_topic(session: AsyncSession, topic: str, year_from: int | None = None, year_to: int | None = None, question_type: str | None = None, limit: int = 50) → list[ChunkORM]: first verify topic exists with select(TopicStatsORM).where(TopicStatsORM.topic == topic) — raise TopicNotFound if result is None; then query chunks with select(ChunkORM).where(ChunkORM.source_type == "past_exam", ChunkORM.topic == topic, ...).order_by(ChunkORM.year.desc()).limit(limit); apply year_from / year_to / question_type filters only when not None
+
+- [X] T037 [US4] Implement app/services/topic_service.py: implement get_all_topic_stats(session: AsyncSession) → list[TopicStat]: call topic_stats_repo.get_all_topic_stats(); for each ORM row compute frequency_tier — high if appearances >= 14 (~7+ of last 10 years at 2 sessions/year), medium if 7–13, low if <= 6; return list[TopicStat] domain models; implement get_questions_by_topic(session: AsyncSession, conn: asyncpg.Connection, topic: str, year_from: int | None, year_to: int | None, question_type: str | None, limit: int) → list[PastQuestion]: call topic_stats_repo.get_questions_by_topic(); for each ChunkORM row call chunk_repo.get_answer_key(conn, orm.year, orm.session, orm.exercise_id) → answer; convert to PastQuestion(chunk_id=orm.id, year, session, topic, subtopic, question_type, marks, content, answer=answer); return list; NOTE: get_questions_by_topic requires both an AsyncSession (for SQLAlchemy repo queries) and an asyncpg.Connection (for chunk_repo answer key lookup) — both injected from api/dependencies.py in T038
+
+- [X] T038 [US4] Create app/api/routers/topics.py: router = APIRouter(prefix="/topics", tags=["topics"]); GET /stats endpoint: depends on current_active_user, get_async_session(); call topic_service.get_all_topic_stats(session); return {"topics": [t.model_dump() for t in stats]}; GET /{topic}/questions endpoint: path param topic: str, optional query params year_from: int | None = None, year_to: int | None = None, question_type: str | None = None, limit: int = Query(default=50, le=200); depends on current_active_user, get_async_session(), and get_db_conn() (for answer key lookup); call topic_service.get_questions_by_topic(session=session, conn=conn, topic=topic, ...); return {"topic": topic, "total_returned": len(questions), "questions": [q.model_dump() for q in questions]}
+
+### Integration & Checkpoint
+
+- [X] T039 Wire Phase 3 routers into app/main.py: add imports `from app.api.routers import questions as _questions` and `from app.api.routers import topics as _topics`; add `app.include_router(_questions.router)` and `app.include_router(_topics.router)` after the existing health/auth router includes
+
+- [X] T040 Verify Phase 3 checkpoint: with Docker stack running (db, redis, vault, api), GET /topics/stats with Bearer token → returns JSON array of topics with frequency_tier in < 3 s; POST /questions/retrieve with body {"query": "integration questions from 2015 to 2024"} → returns questions with content and answer fields in < 5 s; GET /topics/Functions/questions → returns question list filtered by topic; confirm /topics/stats hits no LLM (check logs for no anthropic/voyage calls)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
 - **Plan Phase 1 — Infrastructure Foundation (T001–T025)**: Complete ✅
-- **Plan Phase 2 — Ingestion Pipeline (T026–T031)**:
-  - T026 (pdf_extractor) — no dependencies, start immediately
-  - T027 (chunker) — no dependencies, start immediately
-  - T028 (tagger) — no dependencies, start immediately
-  - T029 (embedder) — no dependencies, start immediately
-  - T030 (pipeline) — depends on T026, T027, T028, T029 all complete
-  - T031 (checkpoint) — depends on T030 complete + Docker stack running
+- **Plan Phase 2 — Ingestion Pipeline (T026–T031)**: Complete ✅
+- **Plan Phase 3 — RAG Retrieval + Topic Analytics (T032–T040)**:
+  - T032 (voyage.py) — no dependencies, start immediately [P]
+  - T033 (chunk_repo.py) — no dependencies, start immediately [P]
+  - T034 (retrieval_service.py) — depends on T032 + T033
+  - T035 (questions router) — depends on T034
+  - T036 (topic_stats_repo.py) — no dependencies, start immediately [P]
+  - T037 (topic_service.py) — depends on T036
+  - T038 (topics router) — depends on T037
+  - T039 (wire routers) — depends on T035 + T038
+  - T040 (checkpoint) — depends on T039 + Docker stack running
 
 ### Parallel Opportunities Within Phase 3
 
 ```
 # Launch together (no interdependencies):
-T026 — ingestion/pdf_extractor.py
-T027 — ingestion/chunker.py
-T028 — ingestion/tagger.py
-T029 — ingestion/embedder.py  (wait for T026-T028 results first if sequential)
+T032 — app/infra/embeddings/voyage.py
+T033 — app/repositories/chunk_repo.py
+T036 — app/repositories/topic_stats_repo.py
 
-# Then in sequence:
-T030 — ingestion/pipeline.py  — after T026, T027, T028, T029
-T031 — checkpoint              — after T030 + docker compose up
+# US3 chain (after T032 + T033):
+T034 — app/services/retrieval_service.py
+T035 — app/api/routers/questions.py
+
+# US4 chain (after T036):
+T037 — app/services/topic_service.py
+T038 — app/api/routers/topics.py
+
+# Integration (after T035 + T038):
+T039 — app/main.py router wiring
+T040 — checkpoint
 ```
 
 ---
@@ -156,10 +202,11 @@ T031 — checkpoint              — after T030 + docker compose up
 
 - [P] tasks operate on different files with no shared dependencies — safe to implement in parallel
 - Ingestion pipeline reads credentials from CLI flags with env var fallbacks — it does NOT call Vault (offline script)
-- `Math_GS_Exams_English/` contains 20 PDFs: years 2004–2024, Sessions 1 & 2, some Exceptional sessions
+- `Math_GS_Exams_English/` contains 19 PDFs: years 2004–2024, Sessions 1 & 2, some Exceptional sessions
 - Filename pattern: `Math_GS_English_{YEAR}_Session{N}.pdf` and `Math_GS_English_{YEAR}_Exceptional.pdf`
 - voyage-large-2 produces 1536-d embeddings — matches ChunkORM Vector(1536) column
 - claude-haiku model ID: `claude-haiku-4-5-20251001`
 - Embed batch size of 16 is safe for voyage-large-2 rate limits
 - topic_stats is derived entirely from chunk metadata — no separate AI call needed
-- Phase 4+ tasks (RAG, Exam Generation, Dual Evaluator, Frontend, Polish) to be added via subsequent `/speckit-tasks` runs
+- chunk_repo.py uses asyncpg directly (not SQLAlchemy) because the pgvector `<=>` operator requires raw SQL; topic_stats_repo.py uses SQLAlchemy AsyncSession as normal
+- Phase 4+ tasks (Exam Generation, Chat, Dual Evaluator, Frontend, Polish) to be added via subsequent `/speckit-tasks` runs

@@ -64,9 +64,13 @@ async def add_request_id(request: Request, call_next):
 
 from app.api import exceptions as _exc_handlers  # noqa: E402, F401
 from app.api.routers import health as _health  # noqa: E402, F401
+from app.api.routers import questions as _questions  # noqa: E402, F401
+from app.api.routers import topics as _topics  # noqa: E402, F401
 from app.api.routers.auth import auth_router, register_router, users_router  # noqa: E402
 
 app.include_router(_health.router)
 app.include_router(auth_router, prefix="/auth/jwt", tags=["auth"])
 app.include_router(register_router, prefix="/auth", tags=["auth"])
 app.include_router(users_router, prefix="/auth", tags=["auth"])
+app.include_router(_questions.router)
+app.include_router(_topics.router)
