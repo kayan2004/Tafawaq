@@ -5,6 +5,8 @@ without routers touching infrastructure directly.
 """
 from typing import AsyncGenerator
 
+import asyncpg
+import pgvector.asyncpg
 from fastapi import Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -37,3 +39,20 @@ async def get_redis(request: Request) -> Redis:
 
 async def get_secrets(request: Request) -> AppSecrets:
     return request.app.state.secrets
+
+
+async def get_db_conn(request: Request) -> AsyncGenerator[asyncpg.Connection, None]:
+    """Yield a raw asyncpg connection with the pgvector codec registered.
+
+    Used by routers that need pgvector's <=> operator (chunk_repo). Routers MUST
+    use this dependency rather than calling asyncpg.connect() directly — keeping
+    infrastructure management out of api/ per constitution Principle I.
+    """
+    secrets: AppSecrets = request.app.state.secrets
+    db_url = secrets.db_url.replace("postgresql+asyncpg://", "postgresql://")
+    conn = await asyncpg.connect(db_url)
+    await pgvector.asyncpg.register_vector(conn)
+    try:
+        yield conn
+    finally:
+        await conn.close()
