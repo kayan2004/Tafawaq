@@ -63,6 +63,8 @@ async def add_request_id(request: Request, call_next):
 # ── Routers are registered below after auth is wired ─────────────────────────
 
 from app.api import exceptions as _exc_handlers  # noqa: E402, F401
+from app.api.routers import chat as _chat  # noqa: E402, F401
+from app.api.routers import exams as _exams  # noqa: E402, F401
 from app.api.routers import health as _health  # noqa: E402, F401
 from app.api.routers import questions as _questions  # noqa: E402, F401
 from app.api.routers import topics as _topics  # noqa: E402, F401
@@ -74,3 +76,5 @@ app.include_router(register_router, prefix="/auth", tags=["auth"])
 app.include_router(users_router, prefix="/auth", tags=["auth"])
 app.include_router(_questions.router)
 app.include_router(_topics.router)
+app.include_router(_exams.router)
+app.include_router(_chat.router)

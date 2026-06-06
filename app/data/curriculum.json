@@ -1,0 +1,21 @@
+{
+  "academic_year": "2024-2025",
+  "in_scope": [
+    "Functions",
+    "Limits and Asymptotes",
+    "Derivatives",
+    "Integrals",
+    "Complex Numbers",
+    "Geometry in Space",
+    "Probability",
+    "Numerical Sequences",
+    "Differential Equations",
+    "Logarithmic and Exponential Functions"
+  ],
+  "out_of_scope": [
+    "Oblique Asymptotes",
+    "Polar Coordinates",
+    "Taylor Series",
+    "Statistics beyond basic probability"
+  ]
+}

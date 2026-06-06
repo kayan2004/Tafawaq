@@ -133,8 +133,9 @@ app/
         ├── claude.py        # stream_claude(), call_claude(); wraps anthropic SDK
         └── tools.py         # Tool schema definitions for all 3 agent tools
     └── embeddings/
-        ├── voyage.py        # embed_text(), embed_batch() via voyageai
-        └── guardrails.py    # ANCHOR_EMBEDDINGS constant; cosine_similarity()
+        └── voyage.py        # embed_text(), embed_batch() via voyageai
+                             # (NOTE: the original cosine-anchor guardrails.py was removed —
+                             #  off-topic checks now live in the guardrails-service, see below)
 
 alembic/
 ├── env.py
@@ -147,6 +148,14 @@ ingestion/                   # offline pipeline — no runtime coupling to app/
 ├── chunker.py               # exercise-level chunking; one chunk per complete exercise, never split across exercise boundaries
 ├── tagger.py                # claude-haiku: topic + subtopic + question_type per chunk
 └── embedder.py              # voyageai voyage-large-2 batch embed → pgvector INSERT
+
+guardrails-service/          # standalone off-topic classifier microservice (own container)
+├── main.py                  # FastAPI: POST /check → {"off_topic": bool}; NeMo LLMRails
+├── Dockerfile
+├── requirements.txt         # nemoguardrails, langchain, langchain-anthropic, fastapi
+└── config/
+    ├── config.yml           # NeMo: main engine = anthropic claude-haiku-4-5
+    └── rails.co             # input flow: check_math_topic action → "OFF_TOPIC" sentinel
 
 frontend/
 ├── src/
@@ -171,14 +180,26 @@ frontend/
 │       └── useTopicStats.ts
 └── vite.config.ts
 
-docker-compose.yml           # services: api, db, redis, minio, vault, migrate
+docker-compose.yml           # services: db, redis, minio, vault, vault-seed, migrate,
+                             # guardrails, api, pgadmin
 .env.example                 # VAULT_TOKEN only — all other secrets live in Vault
 ```
 
 **Structure Decision**: Full-stack web application. Backend under `app/` strictly following the
 constitution's five-layer structure. Frontend under `frontend/` as a standalone Vite SPA.
 Ingestion under `ingestion/` as an isolated offline pipeline with no import-time coupling to
-`app/`. Alembic under `alembic/` at repo root. All services orchestrated via `docker-compose.yml`.
+`app/`. Alembic under `alembic/` at repo root. Off-topic guardrail classification runs as a
+standalone `guardrails-service/` container (NeMo Guardrails + Claude Haiku); the main API calls
+it over HTTP via `GUARDRAILS_URL` and keeps all counter/tier/blocking logic in
+`services/guardrails_service.py`. All services orchestrated via `docker-compose.yml`.
+
+**Guardrails design note (deviation from original plan)**: The plan originally specified an
+in-process cosine-anchor embedding check (`infra/embeddings/guardrails.py`). During Phase 4 this
+was replaced by a dedicated NeMo Guardrails microservice that makes a single Claude Haiku
+classification call per message. The old embedding module was removed. The microservice receives
+`ANTHROPIC_API_KEY` via Compose env rather than Vault — a
+deliberate, documented exception to the Vault-first principle (the service has no runtime Vault
+dependency).
 
 ## Implementation Phases
 
@@ -249,7 +270,7 @@ dynamic guardrails, auth — drop in that order and document in this section.
 | `infra/llm/claude.py` — stream_claude() + SSE response | First token < 5 s |
 | `infra/llm/tools.py` — 3 agent tool definitions | retrieve_past_questions, retrieve_answer_key, get_topic_stats |
 | `services/exam_service.py` — generate_exam(), FR-024 active session check | `POST /exams/generate` streams exam |
-| `services/guardrails_service.py` — cosine anchor check + Redis counter | Three-tier response logic |
+| `guardrails-service/` (NeMo + Claude Haiku) + `services/guardrails_service.py` HTTP client + Redis counter | Three-tier response logic |
 | `services/chat_service.py` — handle_turn(), curriculum scope check | `POST /chat` streams response |
 
 **Checkpoint**: Mock exam generates and streams; asking about out-of-scope topic returns correct notice; 3 off-topic messages triggers soft block.
@@ -316,4 +337,4 @@ dynamic guardrails, auth — drop in that order and document in this section.
 | II. Infrastructure Contracts | PASS | infra/vault.py called in app startup event; docker-compose migrate service with depends_on condition confirmed in contracts |
 | III. Streaming Runtime | PASS | chat.py and exams.py routers return StreamingResponse; redis_client.py SESSION_TTL and GUARDRAILS_TTL constants used at every SET call |
 | IV. Error Boundaries | PASS | ActiveSessionExists (FR-024), AIServiceUnavailable (FR-026) added to domain/exceptions.py; all map to HTTP 4xx/503 in api/exceptions.py |
-| V. Security | PASS | All Pydantic request models defined in contracts; no raw dict passes service boundary |
+| V. Security | PASS (1 documented exception) | All Pydantic request models defined in contracts; no raw dict passes service boundary. Exception: the `guardrails-service` container receives `ANTHROPIC_API_KEY` via Compose env, not Vault — it has no runtime Vault dependency (see Guardrails design note above) |

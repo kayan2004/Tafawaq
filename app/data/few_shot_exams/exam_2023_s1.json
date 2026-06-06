@@ -1,0 +1,104 @@
+{
+  "year": 2023,
+  "session": 1,
+  "total_marks": 20,
+  "exercises": [
+    {
+      "id": 1,
+      "topic": "Differential Equations",
+      "total_marks": 4,
+      "content": "Consider the differential equation (E): y' - 2y = e^{2x}, where y is a function of x.",
+      "parts": [
+        {
+          "part": "1",
+          "marks": 1,
+          "content": "Solve the homogeneous equation y' - 2y = 0."
+        },
+        {
+          "part": "2",
+          "marks": 2,
+          "content": "Find a particular solution of (E) of the form y = axe^{2x}."
+        },
+        {
+          "part": "3",
+          "marks": 1,
+          "content": "Write the general solution of (E). Determine the solution satisfying y(0) = 1."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "topic": "Integrals",
+      "total_marks": 5,
+      "content": "Let f(x) = (2x - 1)e^{-x}. Let (C) be the curve of f in an orthonormal frame (O; \\vec{i}, \\vec{j}) and let D be the domain bounded by (C), the x-axis, and the lines x = 0 and x = 1.",
+      "parts": [
+        {
+          "part": "1",
+          "marks": 2,
+          "content": "Calculate \\int_0^1 f(x)\\,dx using integration by parts."
+        },
+        {
+          "part": "2",
+          "marks": 1,
+          "content": "Determine the sign of f(x) on [0, 1]."
+        },
+        {
+          "part": "3",
+          "marks": 2,
+          "content": "Calculate the area of D. Express the answer in square units."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "topic": "Geometry in Space",
+      "total_marks": 5,
+      "content": "In space with orthonormal frame (O; \\vec{i}, \\vec{j}, \\vec{k}), consider points A(1, 0, 2), B(3, 1, 0), C(0, 2, 1), and the plane (P): x + y - z + 1 = 0.",
+      "parts": [
+        {
+          "part": "1",
+          "marks": 1,
+          "content": "Find a normal vector \\vec{n} to the plane (P)."
+        },
+        {
+          "part": "2",
+          "marks": 2,
+          "content": "Write an equation of the plane (Q) passing through A and parallel to (P)."
+        },
+        {
+          "part": "3",
+          "marks": 2,
+          "content": "Find the distance from point B to plane (P)."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "topic": "Logarithmic and Exponential Functions",
+      "total_marks": 6,
+      "content": "Consider the function g defined on (0, +\\infty) by g(x) = x\\ln x - x + 1.",
+      "parts": [
+        {
+          "part": "1",
+          "marks": 1,
+          "content": "Calculate \\lim_{x \\to 0^+} g(x)."
+        },
+        {
+          "part": "2",
+          "marks": 2,
+          "content": "Calculate g'(x) and study its sign. Deduce the minimum value of g on (0, +\\infty)."
+        },
+        {
+          "part": "3",
+          "marks": 1,
+          "content": "Show that g(x) \\geq 0 for all x > 0. Deduce that \\ln x \\geq 1 - \\frac{1}{x} for all x > 0."
+        },
+        {
+          "part": "4",
+          "marks": 2,
+          "content": "Using the result of part 3, show that \\sum_{k=1}^{n} \\frac{1}{k} \\geq \\ln(n+1) for all n \\geq 1."
+        }
+      ]
+    }
+  ]
+}

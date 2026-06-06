@@ -1,9 +1,10 @@
 """Retrieval service — semantic search over past exam chunks."""
 from __future__ import annotations
 
+import asyncio
+
 import asyncpg
 
-from app.domain.exceptions import EmbeddingServiceUnavailable
 from app.domain.models import PastQuestion
 from app.infra.embeddings.voyage import embed_text
 from app.infra.vault import AppSecrets
@@ -20,8 +21,8 @@ async def retrieve_past_questions(
     secrets: AppSecrets,
     conn: asyncpg.Connection,
 ) -> list[PastQuestion]:
-    # Raises EmbeddingServiceUnavailable if Voyage AI is down
-    embedding = embed_text(query, secrets.voyage_api_key)
+    # embed_text is sync (voyageai SDK) — run in thread to avoid blocking event loop
+    embedding = await asyncio.to_thread(embed_text, query, secrets.voyage_api_key)
 
     rows = await chunk_repo.cosine_similarity_search(
         conn, embedding, topic, question_type, year_from, year_to, limit

@@ -1,0 +1,11 @@
+# Input rail: classify every incoming message via a custom Python action.
+# If the action returns False (off-topic), return the OFF_TOPIC sentinel and stop.
+define flow check lebanese math topic
+  $allowed = execute check_math_topic
+  if not $allowed
+    bot inform cannot answer
+    stop
+
+# Hardcoded sentinel — no LLM call, returned verbatim.
+define bot inform cannot answer
+  "OFF_TOPIC"

@@ -88,6 +88,22 @@ services:
         condition: service_completed_successfully
     restart: on-failure
 
+  guardrails:
+    build:
+      context: ./guardrails-service
+      dockerfile: Dockerfile
+    ports:
+      - "8100:8100"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-placeholder-set-real-key}
+      NEMOGUARDRAILS_LLM_FRAMEWORK: langchain
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
   api:
     build: .
     ports:
@@ -95,6 +111,7 @@ services:
     environment:
       # Docker-internal Vault address — overrides VAULT_ADDR from env_file
       VAULT_ADDR: http://vault:8200
+      GUARDRAILS_URL: http://guardrails:8100
     env_file:
       - .env
     depends_on:
@@ -108,6 +125,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      guardrails:
+        condition: service_healthy
 
   pgadmin:
     image: dpage/pgadmin4
