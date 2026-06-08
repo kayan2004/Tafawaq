@@ -15,6 +15,7 @@ from app.domain.exceptions import (
     InvalidAnswerSubmission,
     LebaneseCoachError,
     SessionExpired,
+    TextbookPageNotFound,
     TopicNotFound,
 )
 from app.domain.models import ErrorResponse
@@ -34,6 +35,7 @@ def _error(request: Request, status: int, message: str) -> JSONResponse:
 @app.exception_handler(ExamNotFound)
 @app.exception_handler(AnswerKeyNotFound)
 @app.exception_handler(TopicNotFound)
+@app.exception_handler(TextbookPageNotFound)
 async def not_found_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
     return _error(request, 404, str(exc) or "Resource not found.")
 

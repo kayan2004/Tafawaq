@@ -17,31 +17,39 @@ async def cosine_similarity_search(
     year_from: int | None,
     year_to: int | None,
     limit: int = 10,
+    source_types: list[str] | None = None,
 ) -> list[asyncpg.Record]:
     await pgvector.asyncpg.register_vector(conn)
     return await conn.fetch(
         """
         SELECT
-            id,
-            year,
-            session,
-            exercise_id,
-            topic,
-            subtopic,
-            question_type,
-            marks,
-            content,
-            1 - (embedding <=> $1::vector) AS similarity
-        FROM chunks
-        WHERE source_type = 'past_exam'
-          AND ($2::text IS NULL OR topic ILIKE $2)
-          AND ($3::text IS NULL OR question_type::text = $3)
-          AND ($4::int  IS NULL OR year >= $4)
-          AND ($5::int  IS NULL OR year <= $5)
-        ORDER BY embedding <=> $1::vector
-        LIMIT $6
+            c.id,
+            c.source_type,
+            c.year,
+            c.session,
+            c.exercise_id,
+            c.topic,
+            c.subtopic,
+            c.question_type,
+            c.marks,
+            c.content,
+            c.page_start,
+            c.page_end,
+            tp.chapter,
+            tp.section,
+            1 - (c.embedding <=> $1::vector) AS similarity
+        FROM chunks c
+        LEFT JOIN textbook_pages tp ON tp.page_number = c.page_start
+        WHERE ($2::text[] IS NULL OR c.source_type = ANY($2::text[]))
+          AND ($3::text IS NULL OR c.topic ILIKE $3)
+          AND ($4::text IS NULL OR c.question_type::text = $4)
+          AND ($5::int  IS NULL OR c.year >= $5)
+          AND ($6::int  IS NULL OR c.year <= $6)
+        ORDER BY c.embedding <=> $1::vector
+        LIMIT $7
         """,
         embedding,
+        source_types,
         topic,
         question_type,
         year_from,

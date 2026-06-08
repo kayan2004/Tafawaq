@@ -25,6 +25,10 @@ class TopicNotFound(LebaneseCoachError):
     """Topic does not exist in topic_stats."""
 
 
+class TextbookPageNotFound(LebaneseCoachError):
+    """Textbook page does not exist in the textbook_pages table."""
+
+
 # ── 409 Conflict ─────────────────────────────────────────────────────────────
 
 class ActiveSessionExists(LebaneseCoachError):

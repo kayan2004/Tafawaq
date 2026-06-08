@@ -34,6 +34,13 @@ async def stream_claude(
         async with client.messages.stream(**kwargs) as stream:
             async for text in stream.text_stream:
                 yield f"data: {json.dumps({'event': 'token', 'text': text})}\n\n"
+
+            if tools:
+                final = await stream.get_final_message()
+                if final.stop_reason == "tool_use":
+                    for block in final.content:
+                        if block.type == "tool_use":
+                            yield f"data: {json.dumps({'event': 'tool_use', 'tool_use_id': block.id, 'name': block.name, 'input': block.input})}\n\n"
     except anthropic.APIStatusError as exc:
         raise AIServiceUnavailable(str(exc)) from exc
 

@@ -122,18 +122,38 @@ class ChunkORM(Base):
     __tablename__ = "chunks"
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
-    source_type: Mapped[str] = mapped_column(String(20), nullable=False)  # past_exam | answer_key
-    year: Mapped[int] = mapped_column(Integer, nullable=False)
-    session: Mapped[int] = mapped_column(Integer, nullable=False)
+    # source_type values: past_exam | answer_key | textbook_theory | textbook_exercise | textbook_self_evaluation
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # NULL for textbook chunks (not applicable outside past-exam source types)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    session: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # exercise_id enables answer key pairing: same (year, session, exercise_id)
     # with source_type='answer_key' is the answer key for source_type='past_exam'.
-    exercise_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    exercise_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     topic: Mapped[str] = mapped_column(String(100), nullable=False)
     subtopic: Mapped[str] = mapped_column(String(100), nullable=False)
-    question_type: Mapped[QuestionType] = mapped_column(SAEnum(QuestionType), nullable=False)
-    marks: Mapped[float] = mapped_column(Float, nullable=False)
+    question_type: Mapped[QuestionType | None] = mapped_column(SAEnum(QuestionType), nullable=True)
+    marks: Mapped[float | None] = mapped_column(Float, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[Vector] = mapped_column(Vector(1536), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # NULL for past-exam/answer-key chunks; set for textbook chunks
+    page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+# ── Textbook Pages ───────────────────────────────────────────────────────────
+
+class TextbookPageORM(Base):
+    __tablename__ = "textbook_pages"
+
+    id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
+    page_number: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    chapter: Mapped[str] = mapped_column(String, nullable=False)
+    section: Mapped[str] = mapped_column(String, nullable=False)
+    # page_type values: theory | exercise | self_evaluation | just_for_fun | preface | blank | mixed
+    page_type: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -79,8 +79,61 @@ GET_TOPIC_STATS_TOOL: dict = {
     },
 }
 
+RETRIEVE_TEXTBOOK_PAGE_TOOL: dict = {
+    "name": "retrieve_textbook_page",
+    "description": (
+        "Retrieve the exact content of a specific page from the Building Up Mathematics "
+        "textbook by page number. Use when the student mentions a specific page number "
+        "(e.g., 'explain page 47' or 'what is on page 103?')."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "page_number": {
+                "type": "integer",
+                "description": "The page number to retrieve (positive integer)",
+            },
+        },
+        "required": ["page_number"],
+    },
+}
+
+RETRIEVE_TEXTBOOK_SECTIONS_TOOL: dict = {
+    "name": "retrieve_textbook_sections",
+    "description": (
+        "Search the Building Up Mathematics textbook for sections relevant to a topic "
+        "or concept. Use when explaining a math topic to ground the explanation in "
+        "Lebanese curriculum language and notation."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The topic or concept to search for (e.g., 'integration by parts', 'limits of sequences')",
+            },
+            "source_types": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": ["textbook_theory", "textbook_exercise", "textbook_self_evaluation"],
+                },
+                "description": "Filter by content type. Omit to search all textbook content.",
+            },
+            "limit": {
+                "type": "integer",
+                "default": 5,
+                "description": "Maximum number of sections to return (1-10)",
+            },
+        },
+        "required": ["query"],
+    },
+}
+
 ALL_TOOLS: list[dict] = [
     RETRIEVE_PAST_QUESTIONS_TOOL,
     RETRIEVE_ANSWER_KEY_TOOL,
     GET_TOPIC_STATS_TOOL,
+    RETRIEVE_TEXTBOOK_PAGE_TOOL,
+    RETRIEVE_TEXTBOOK_SECTIONS_TOOL,
 ]

@@ -98,6 +98,29 @@ class TopicStat(BaseModel):
     frequency_tier: str            # "high" | "medium" | "low" — computed, not stored
 
 
+# ── Textbook ─────────────────────────────────────────────────────────────────
+
+class TextbookPage(BaseModel):
+    page_number: int
+    chapter: str
+    section: str
+    page_type: str
+    content: str
+
+
+class TextbookSection(BaseModel):
+    chunk_id: UUID
+    chapter: str
+    section: str
+    topic: str
+    subtopic: str
+    source_type: str       # textbook_theory | textbook_exercise | textbook_self_evaluation
+    page_start: int
+    page_end: int
+    content: str
+    similarity: float | None = None
+
+
 # ── Error response (FR-026, Constitution Principle IV) ────────────────────────
 
 class ErrorResponse(BaseModel):

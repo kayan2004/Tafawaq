@@ -128,6 +128,16 @@ services:
       guardrails:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_started
+
   pgadmin:
     image: dpage/pgadmin4
     environment:
