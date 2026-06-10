@@ -125,23 +125,30 @@ export function History() {
 
         <div className="card exam-body">
           {exercises.length > 0 ? (
-            exercises.map((ex, idx) => (
-              <div key={ex.id} className="exam-exercise">
-                <div className="exam-exercise-header">
-                  <span className="exam-ex-num">Exercise {["I","II","III","IV","V","VI"][idx] ?? ex.id}</span>
-                  <span className="exam-ex-topic">{ex.topic}</span>
-                  <span className="exam-ex-marks">{ex.total_marks} pts</span>
-                </div>
-                <div className="exam-exercise-stem"><RichMath>{ex.content}</RichMath></div>
-                {ex.parts.map((p) => (
-                  <div key={p.part} className="exam-part">
-                    <span className="exam-part-label">{p.part})</span>
-                    <div className="exam-part-content"><RichMath>{p.content}</RichMath></div>
-                    <span className="exam-part-marks">({p.marks} pt{p.marks !== 1 ? "s" : ""})</span>
+            exercises.map((ex, idx) => {
+              const ROMAN = ["I","II","III","IV","V","VI"];
+              return (
+                <div key={ex.id} className="exam-exercise">
+                  <div className="exam-exercise-header">
+                    <span className="exam-ex-num">Exercise {ROMAN[idx] ?? ex.id}</span>
+                    <span className="exam-ex-topic">{ex.topic}</span>
+                    <span className="exam-ex-marks">{ex.total_marks} pts</span>
                   </div>
-                ))}
-              </div>
-            ))
+                  <div className="exam-exercise-stem"><RichMath>{ex.content}</RichMath></div>
+                  <div className="exam-parts">
+                    {ex.parts.map((p) => (
+                      <div key={p.part} className="exam-part">
+                        <div className="exam-part-head">
+                          <span className="exam-part-label">{p.part})</span>
+                          <span className="exam-part-marks">{p.marks} pt{p.marks !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div className="exam-part-content"><RichMath>{p.content}</RichMath></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
           ) : (
             <p style={{ color: "var(--ink-2)", fontSize: 14, margin: 0 }}>
               Exam content unavailable for this session.

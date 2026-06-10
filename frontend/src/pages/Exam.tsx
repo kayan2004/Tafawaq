@@ -14,6 +14,36 @@ declare global {
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 
+// ── Shared exercise list renderer ─────────────────────────────────────────────
+
+function ExerciseList({ exercises }: { exercises: ExamExercise[] }) {
+  return (
+    <>
+      {exercises.map((ex, idx) => (
+        <div key={ex.id} className="exam-exercise">
+          <div className="exam-exercise-header">
+            <span className="exam-ex-num">Exercise {ROMAN[idx] ?? ex.id}</span>
+            <span className="exam-ex-topic">{ex.topic}</span>
+            <span className="exam-ex-marks">{ex.total_marks} pts</span>
+          </div>
+          <div className="exam-exercise-stem"><RichMath>{ex.content}</RichMath></div>
+          <div className="exam-parts">
+            {ex.parts.map((p) => (
+              <div key={p.part} className="exam-part">
+                <div className="exam-part-head">
+                  <span className="exam-part-label">{p.part})</span>
+                  <span className="exam-part-marks">{p.marks} pt{p.marks !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="exam-part-content"><RichMath>{p.content}</RichMath></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ── Phase type ────────────────────────────────────────────────────────────────
 
 type Phase =
@@ -196,23 +226,12 @@ export function Exam() {
         </div>
       </div>
       <div className="card exam-body">
-        {phase.exercises.map((ex, idx) => (
-          <div key={ex.id} className="exam-exercise">
-            <div className="exam-exercise-header">
-              <span className="exam-ex-num">Exercise {ROMAN[idx] ?? ex.id}</span>
-              <span className="exam-ex-topic">{ex.topic}</span>
-              <span className="exam-ex-marks">{ex.total_marks} pts</span>
-            </div>
-            <div className="exam-exercise-stem"><RichMath>{ex.content}</RichMath></div>
-            {ex.parts.map((p) => (
-              <div key={p.part} className="exam-part">
-                <span className="exam-part-label">{p.part})</span>
-                <div className="exam-part-content"><RichMath>{p.content}</RichMath></div>
-                <span className="exam-part-marks">({p.marks} pt{p.marks !== 1 ? "s" : ""})</span>
-              </div>
-            ))}
-          </div>
-        ))}
+        <div className="exam-print-header">
+          <p className="exam-print-title">Lebanese Official Baccalaureate — GS Mathematics</p>
+          <p className="exam-print-meta">Mock Exam &nbsp;·&nbsp; {totalMarks} points &nbsp;·&nbsp; Duration: 3 hours</p>
+          <p className="exam-print-instructions">Non-programmable calculator permitted. You may answer exercises in any order.</p>
+        </div>
+        <ExerciseList exercises={phase.exercises} />
       </div>
     </div>
   );
