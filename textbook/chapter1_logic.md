@@ -395,3 +395,4 @@ type: just_for_fun
    4. those who learn English and Russian learn French.
 
    What are the languages learned by those who learn Russian ?
+

@@ -11,6 +11,7 @@ from app.domain.exceptions import (
     AIServiceUnavailable,
     AnswerKeyNotFound,
     EmbeddingServiceUnavailable,
+    EvaluatorResponseError,
     ExamNotFound,
     InvalidAnswerSubmission,
     LebaneseCoachError,
@@ -61,6 +62,11 @@ async def session_expired_handler(request: Request, exc: SessionExpired) -> JSON
 @app.exception_handler(InvalidAnswerSubmission)
 async def invalid_submission_handler(request: Request, exc: InvalidAnswerSubmission) -> JSONResponse:
     return _error(request, 422, str(exc) or "Invalid answer submission.")
+
+
+@app.exception_handler(EvaluatorResponseError)
+async def evaluator_response_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
+    return _error(request, 502, "AI evaluator returned an unprocessable response.")
 
 
 @app.exception_handler(AIServiceUnavailable)

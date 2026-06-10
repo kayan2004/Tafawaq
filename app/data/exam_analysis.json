@@ -1,0 +1,62 @@
+{
+  "phrasing_conventions": [
+    "Let f be the function defined on R as f(x) = ...",
+    "Let (C) be the representative curve of f in an orthonormal system (O; i, j).",
+    "Let (d) be the line with equation y = ...",
+    "Show that f'(x) = ...",
+    "Deduce that f has a minimum / maximum at x = ...",
+    "Verify that ...",
+    "Calculate f(a). Deduce ...",
+    "Study the relative positions of (C) and (d).",
+    "Show that (C) has a point of inflection at x = ... and determine its coordinates.",
+    "The equation f(x) = k has two real roots alpha and beta such that alpha < 0 < beta.",
+    "Let A(alpha) be the area of the region bounded by (C), (d), and the y-axis.",
+    "Prove that integral of ... dx = ... + k, with k in R."
+  ],
+  "curve_study_sequence": [
+    "1. Determine the domain of definition Df.",
+    "2. Calculate the limits at the boundaries of Df (at -inf, +inf, and any excluded point).",
+    "3. Study asymptotes: identify oblique asymptote y = ax+b by computing lim [f(x)-(ax+b)], then state relative position of (C) vs (d).",
+    "4. Calculate f'(x) and verify it equals a known auxiliary function g(x) already studied in Part A.",
+    "5. Deduce the sign of f'(x) from the sign table of g, then set up the table of variations of f.",
+    "6. Calculate f''(x). Show it vanishes at a specific x0 and changes sign, concluding (C) has a point of inflection at x0.",
+    "7. Draw (d) and (C) in a named orthonormal system, labelling the minimum, the asymptote, and the inflection point."
+  ],
+  "function_types_observed": [
+    "x * e^x  (most frequent — appears in ~70% of sessions)",
+    "(x + a) * e^x",
+    "x * e^(-x)",
+    "x * ln(x)",
+    "ln(x) / x",
+    "x - ln(x)",
+    "(x^2 + a) * e^x",
+    "e^x / (x + a)"
+  ],
+  "exercise_templates": {
+    "functions_curve_study": {
+      "marks": 8,
+      "structure": "Two parts. Part A: define auxiliary function g(x) = f'(x), study g fully (limits, variations, sign table). Part B: define main function f, use g from Part A to find f', study f fully, find asymptote, inflection point, compute an integral or area bounded by (C) and (d).",
+      "typical_parts": ["verify limit", "table of variations of g", "sign of g", "limits of f", "asymptote and relative position", "variations of f", "inflection point", "integral identity proof", "area computation"]
+    },
+    "complex_numbers": {
+      "marks": 4,
+      "structure": "Define points A, B, C with given affixes. Define a transformation M -> M'. Questions: exponential form of z', algebraic form of a ratio to deduce triangle nature, verify transformation formula, deduce modulus relation, find locus of M'.",
+      "typical_parts": ["exponential form", "algebraic form of ratio", "nature of triangle", "verify formula", "modulus deduction", "locus (circle)"]
+    },
+    "probability": {
+      "marks": 4,
+      "structure": "Two parts. Part A: simple urn model, simultaneous draws, compute P(A) using combinations. Part B: compound experiment (die + urn), compute conditional probabilities using total probability formula, apply Bayes theorem. Must define random variable X and compute E(X).",
+      "typical_parts": ["count outcomes", "P(A)", "P(B)", "P(F|E)", "P(F∩E)", "P(F)", "Bayes P(E|F)", "define X", "E(X)"]
+    },
+    "space_geometry": {
+      "marks": 4,
+      "structure": "Orthonormal frame in space with specific points. Questions: find normal vector, equation of a plane, parametric equations of a line, distance from point to plane, intersection of line and plane, nature of a solid.",
+      "typical_parts": ["normal vector", "plane equation", "line equations", "distance", "intersection point", "show perpendicularity"]
+    },
+    "sequences": {
+      "marks": 4,
+      "structure": "Define sequence (u_n). Show it is arithmetic or geometric or neither. Find general term. Study monotonicity. Compute sum S_n. Study limit.",
+      "typical_parts": ["show type", "general term", "monotonicity", "sum formula", "limit"]
+    }
+  }
+}

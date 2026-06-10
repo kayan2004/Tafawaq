@@ -40,7 +40,7 @@ function Ico({ d, paths, fill, size = 20, sw = 2, className = "nav-ico", style }
 export type IconName =
   | "dashboard" | "exam" | "past" | "topics" | "chat" | "history"
   | "timer" | "check" | "arrow" | "chevron" | "send" | "spark"
-  | "plus" | "alert" | "scale" | "target" | "flame" | "book" | "eye";
+  | "plus" | "alert" | "scale" | "target" | "flame" | "book" | "eye" | "eye-off";
 
 export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   dashboard: (p) => <Ico {...p} paths={<><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></>} />,
@@ -62,4 +62,5 @@ export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   flame: (p) => <Ico {...p} paths={<path d="M12 3c1 3 4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-2.5C9 11 8 12 8 14a4 4 0 0 0 8 0c0-4-3-6-4-11z"/>} />,
   book: (p) => <Ico {...p} paths={<><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 5v14"/></>} />,
   eye: (p) => <Ico {...p} paths={<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></>} />,
+  "eye-off": (p) => <Ico {...p} paths={<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20"/>} />,
 };

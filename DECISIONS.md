@@ -433,24 +433,42 @@ Question types observed across past exams:
 - Retrieved at grading time — no RAG needed
 
 ### Dual Evaluator Output Format
+
+Each evaluator returns per-exercise, per-part results. `grand_total` and `grand_max` are computed
+in Python from the exercises array (not trusted from Claude). Discrepancy is flagged when
+`abs(grand_total_1 - grand_total_2) >= 2.0`.
+
 ```json
 {
+  "session_id": "uuid",
   "evaluator_1": {
-    "scores": {"Q1": 3.5, "Q2": 2.0},
-    "total": 14.5,
-    "feedback": "...",
-    "missing_keywords": ["continuity", "differentiability"]
+    "exercises": [
+      {
+        "exercise_id": 1,
+        "parts": {
+          "1)": { "score": 1.5, "max_score": 2.0, "feedback": "" },
+          "2)": { "score": 0.75, "max_score": 1.0, "feedback": "Missing justification" }
+        },
+        "exercise_total": 2.25,
+        "exercise_max": 3.0
+      }
+    ],
+    "grand_total": 14.5,
+    "grand_max": 20.0
   },
   "evaluator_2": {
-    "scores": {"Q1": 3.0, "Q2": 2.5},
-    "total": 14.0,
-    "feedback": "...",
-    "missing_keywords": ["continuity"]
+    "exercises": [ "..." ],
+    "grand_total": 15.0,
+    "grand_max": 20.0
   },
-  "discrepancy_flagged": true,
-  "discrepancy_details": "Q1 score differs by 0.5 points"
+  "discrepancy_flagged": false,
+  "discrepancy_details": null,
+  "average_total": 14.75
 }
 ```
+
+Grading is triggered via `POST /grade` with `{ session_id, answers }` — returns JSON directly
+(non-streaming). Both evaluators run in parallel via `asyncio.gather`.
 
 ---
 

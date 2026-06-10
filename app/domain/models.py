@@ -15,30 +15,33 @@ from app.domain.enums import SessionStatus, SessionType
 
 # ── Exam content ─────────────────────────────────────────────────────────────
 
-class ExercisePart(BaseModel):
-    part: str
+class ExamPart(BaseModel):
+    part: str       # "1", "2", "3", "a", "b", etc.
     marks: float
-    content: str
+    content: str    # LaTeX string
 
-
-class GraphSpec(BaseModel):
-    type: str                  # e.g. "desmos"
-    expression: str
-    x_range: list[float]
-    y_range: list[float]
-
-
-class Exercise(BaseModel):
+class ExamExercise(BaseModel):
     id: int
     topic: str
     total_marks: float
-    content: str
-    graph: GraphSpec | None = None
-    parts: list[ExercisePart]
-
+    content: str    # exercise stem with LaTeX
+    parts: list[ExamPart]
 
 class ExamContent(BaseModel):
-    exercises: list[Exercise]
+    exercises: list[ExamExercise] = []
+
+class AnswerKeyPart(BaseModel):
+    part: str
+    marks: float
+    answer: str
+    partial_credit: str = ""
+
+class AnswerKeyExercise(BaseModel):
+    id: int
+    parts: list[AnswerKeyPart]
+
+class AnswerKey(BaseModel):
+    exercises: list[AnswerKeyExercise] = []
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
@@ -50,26 +53,6 @@ class ExamSession(BaseModel):
     status: SessionStatus
     exam_content: ExamContent
     created_at: datetime
-    expires_at: datetime
-
-
-# ── Evaluation ────────────────────────────────────────────────────────────────
-
-class EvaluatorScore(BaseModel):
-    scores: dict[str, float]       # {"Q1_1": 2.0, "Q1_2": 1.0, ...}
-    total: float
-    feedback: str
-    missing_keywords: list[str]
-
-
-class EvaluationResult(BaseModel):
-    session_id: UUID
-    evaluator_1: EvaluatorScore
-    evaluator_2: EvaluatorScore
-    total_score_1: float
-    total_score_2: float
-    discrepancy_flagged: bool
-    discrepancy_details: str | None = None
 
 
 # ── Past questions ────────────────────────────────────────────────────────────

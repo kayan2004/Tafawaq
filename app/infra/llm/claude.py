@@ -41,7 +41,7 @@ async def stream_claude(
                     for block in final.content:
                         if block.type == "tool_use":
                             yield f"data: {json.dumps({'event': 'tool_use', 'tool_use_id': block.id, 'name': block.name, 'input': block.input})}\n\n"
-    except anthropic.APIStatusError as exc:
+    except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
         raise AIServiceUnavailable(str(exc)) from exc
 
     yield "data: [DONE]\n\n"

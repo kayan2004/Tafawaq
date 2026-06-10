@@ -1,21 +1,214 @@
 {
-  "academic_year": "2024-2025",
-  "in_scope": [
-    "Functions",
-    "Limits and Asymptotes",
-    "Derivatives",
-    "Integrals",
-    "Complex Numbers",
-    "Geometry in Space",
-    "Probability",
-    "Numerical Sequences",
-    "Differential Equations",
-    "Logarithmic and Exponential Functions"
+  "subject": "Mathematics",
+  "track": "GS",
+  "language": "English",
+  "academic_year": "2025-2026",
+  "note": "Trigonometric and inverse trigonometric function integrals are excluded.",
+  "topics": [
+    {
+      "chapter": 1,
+      "title": "Parallelism and Orthogonality in Space",
+      "textbook_page": 187,
+      "subtopics": [
+        "Parametric equations of a line",
+        "Relative position of two planes",
+        "Relative position of a line and a plane",
+        "Relative position of two lines",
+        "Orthogonality of two straight lines",
+        "Orthogonality of a straight line and a plane",
+        "Perpendicular planes",
+        "Parallelism of straight lines and planes",
+        "Distance from a point to a plane",
+        "Distance from a point to a line"
+      ]
+    },
+    {
+      "chapter": 2,
+      "title": "Continuous Functions on an Interval",
+      "textbook_page": 29,
+      "subtopics": [
+        "Continuous monotonic function on an interval",
+        "Intermediate value theorem",
+        "Continuous function on a closed interval",
+        "Root of an equation f(x) = 0",
+        "Extending a function by continuity",
+        "Image of a closed interval by a continuous function"
+      ]
+    },
+    {
+      "chapter": 3,
+      "title": "Inverse Functions",
+      "textbook_page": 41,
+      "subtopics": [
+        "Composition of functions",
+        "Inverse functions"
+      ]
+    },
+    {
+      "chapter": 4,
+      "title": "Inverse Trigonometric Functions",
+      "textbook_page": 49,
+      "subtopics": [
+        "The arcsine function",
+        "The arc cosine function",
+        "The arctangent function"
+      ]
+    },
+    {
+      "chapter": 5,
+      "title": "Differential Calculus — L'Hôpital's Rule",
+      "textbook_page": 57,
+      "subtopics": [
+        "L'Hôpital's rule",
+        "Rolle's theorem",
+        "Equalities and inequalities of the mean"
+      ]
+    },
+    {
+      "chapter": 6,
+      "title": "Natural Logarithm",
+      "textbook_page": 67,
+      "subtopics": [
+        "The natural logarithm function",
+        "Study of Ln and graphical representation",
+        "Finding antiderivatives using Ln",
+        "Important limits involving Ln"
+      ]
+    },
+    {
+      "chapter": 7,
+      "title": "Exponential Function",
+      "textbook_page": 77,
+      "subtopics": [
+        "The exponential function",
+        "Fundamental properties of exp",
+        "Graphical study of exp",
+        "Useful limits",
+        "Finding antiderivatives using exp",
+        "Notation for the general exponential function"
+      ]
+    },
+    {
+      "chapter": 8,
+      "title": "Second and Higher Order Derivatives",
+      "textbook_page": 97,
+      "subtopics": [
+        "Second derivative only",
+        "Functions concave upward",
+        "Functions concave downward"
+      ]
+    },
+    {
+      "chapter": 9,
+      "title": "Numerical Sequences",
+      "textbook_page": 107,
+      "subtopics": [
+        "Limit of a sequence",
+        "Bounded sequences",
+        "Properties of convergent sequences",
+        "Rules about limits",
+        "Sequences and inequalities"
+      ]
+    },
+    {
+      "chapter": 10,
+      "title": "Definite Integral — Definition and Properties",
+      "textbook_page": 143,
+      "subtopics": [
+        "Definition and notation",
+        "Immediate properties",
+        "Graphical interpretation",
+        "Linearity of the integral",
+        "From integral to antiderivative",
+        "Inequalities and integrals"
+      ]
+    },
+    {
+      "chapter": 11,
+      "title": "Integration — Substitution and Even/Odd Functions",
+      "textbook_page": 155,
+      "subtopics": [
+        "Integration by change of variable",
+        "Integrals of even functions",
+        "Integrals of odd functions"
+      ]
+    },
+    {
+      "chapter": 12,
+      "title": "Integration — By Parts and Rational Fractions",
+      "textbook_page": 165,
+      "subtopics": [
+        "Table of standard antiderivatives",
+        "Integration by parts",
+        "Rational fractions"
+      ]
+    },
+    {
+      "chapter": 13,
+      "title": "Applications of Integration — Area",
+      "textbook_page": 185,
+      "subtopics": [
+        "Area between two curves"
+      ]
+    },
+    {
+      "chapter": 14,
+      "title": "First Order Differential Equations",
+      "textbook_page": 193,
+      "subtopics": [
+        "Definition and solution of a differential equation",
+        "Equation of the form y' = f(x)",
+        "Separable equations",
+        "First order linear equations with constant coefficients"
+      ]
+    },
+    {
+      "chapter": 15,
+      "title": "Second Order Linear Differential Equations with Constant Coefficients",
+      "textbook_page": 203,
+      "subtopics": [
+        "Equation of the form y'' = f(x)",
+        "Reduced equation",
+        "Equation of type y'' + ω²y = k"
+      ]
+    },
+    {
+      "chapter": 16,
+      "title": "Combinations",
+      "textbook_page": 211,
+      "subtopics": [
+        "Combinations definition and notation",
+        "Binomial formula",
+        "Pascal's triangle",
+        "Modeling by combinations"
+      ]
+    },
+    {
+      "chapter": 17,
+      "title": "Conditional Probability",
+      "textbook_page": 221,
+      "subtopics": [
+        "Conditional probability",
+        "Independent events",
+        "Rule of total probability"
+      ]
+    },
+    {
+      "chapter": 18,
+      "title": "Random Variables",
+      "textbook_page": 229,
+      "subtopics": [
+        "Discrete random variable and probability distribution",
+        "Distribution function",
+        "Mean, variance, and standard deviation"
+      ]
+    }
   ],
   "out_of_scope": [
-    "Oblique Asymptotes",
-    "Polar Coordinates",
-    "Taylor Series",
-    "Statistics beyond basic probability"
+    "Integrals of trigonometric functions",
+    "Integrals of inverse trigonometric functions",
+    "Volume of revolution",
+    "Higher order derivatives beyond the second",
+    "Continuous random variables"
   ]
 }

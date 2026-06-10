@@ -1,4 +1,4 @@
-"""POST /exams/generate, GET /exams/active, GET /exams/{session_id}."""
+"""POST /exams/generate, GET /exams/sessions, GET /exams/active, GET /exams/{session_id}."""
 from __future__ import annotations
 
 from uuid import UUID
@@ -44,6 +44,23 @@ async def generate_exam(
     )
 
 
+@router.get("/sessions")
+async def list_exam_sessions(
+    user: UserORM = Depends(current_active_user),
+    db_session: AsyncSession = Depends(get_async_session),
+):
+    sessions = await exam_service.list_sessions(user.id, db_session)
+    return [
+        {
+            "session_id": str(s.id),
+            "session_type": s.session_type,
+            "status": s.status,
+            "created_at": s.created_at.isoformat(),
+        }
+        for s in sessions
+    ]
+
+
 @router.get("/active")
 async def get_active_session(
     user: UserORM = Depends(current_active_user),
@@ -56,7 +73,6 @@ async def get_active_session(
         "status": session.status,
         "exam_content": session.exam_content.model_dump(),
         "created_at": session.created_at.isoformat(),
-        "expires_at": session.expires_at.isoformat(),
     }
 
 
@@ -73,5 +89,4 @@ async def get_session(
         "status": session.status,
         "exam_content": session.exam_content.model_dump(),
         "created_at": session.created_at.isoformat(),
-        "expires_at": session.expires_at.isoformat(),
     }

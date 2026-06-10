@@ -3,14 +3,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-import asyncpg
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_async_session, get_db_conn, get_redis, get_secrets
+from app.api.dependencies import get_async_session, get_redis, get_secrets
 from app.infra.auth import current_active_user
 from app.infra.vault import AppSecrets
 from app.repositories.orm import UserORM
@@ -31,17 +30,16 @@ async def chat(
     db_session: AsyncSession = Depends(get_async_session),
     redis: Redis = Depends(get_redis),
     secrets: AppSecrets = Depends(get_secrets),
-    conn: asyncpg.Connection = Depends(get_db_conn),
 ):
     return StreamingResponse(
         chat_service.handle_turn(
             conversation_id=body.conversation_id,
             message=body.message,
             user_id=user.id,
+            is_admin=user.is_superuser,
             secrets=secrets,
             db_session=db_session,
             redis=redis,
-            conn=conn,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

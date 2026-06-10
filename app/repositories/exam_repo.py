@@ -4,11 +4,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import SessionStatus, SessionType
 from app.repositories.orm import ExamResultORM, ExamSessionORM
+
+_FAR_FUTURE = datetime(2099, 12, 31, tzinfo=timezone.utc)
 
 
 async def create_session(
@@ -18,7 +20,6 @@ async def create_session(
     session_type: SessionType,
     exam_content: dict,
     answer_key: dict,
-    expires_at: datetime,
 ) -> ExamSessionORM:
     row = ExamSessionORM(
         user_id=user_id,
@@ -27,7 +28,7 @@ async def create_session(
         exam_content=exam_content,
         answer_key=answer_key,
         status=SessionStatus.in_progress,
-        expires_at=expires_at,
+        expires_at=_FAR_FUTURE,
     )
     session.add(row)
     await session.flush()   # resolve FK before caller commits
@@ -49,15 +50,30 @@ async def get_active_session(
     session: AsyncSession,
     user_id: UUID,
 ) -> ExamSessionORM | None:
-    now = datetime.now(timezone.utc)
     result = await session.execute(
-        select(ExamSessionORM).where(
+        select(ExamSessionORM)
+        .where(
             ExamSessionORM.user_id == user_id,
             ExamSessionORM.status == SessionStatus.in_progress,
-            ExamSessionORM.expires_at > now,
         )
+        .order_by(ExamSessionORM.created_at.desc())
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
+
+
+async def archive_active_sessions(
+    session: AsyncSession,
+    user_id: UUID,
+) -> None:
+    """Set all in_progress sessions for this user to submitted."""
+    await session.execute(
+        update(ExamSessionORM)
+        .where(
+            ExamSessionORM.user_id == user_id,
+            ExamSessionORM.status == SessionStatus.in_progress,
+        )
+        .values(status=SessionStatus.submitted)
+    )
 
 
 async def update_session_status(
@@ -97,6 +113,22 @@ async def save_result(
     await session.flush()
     await session.refresh(row)
     return row
+
+
+async def list_sessions(
+    session: AsyncSession,
+    user_id: UUID,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[ExamSessionORM]:
+    result = await session.execute(
+        select(ExamSessionORM)
+        .where(ExamSessionORM.user_id == user_id)
+        .order_by(ExamSessionORM.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars())
 
 
 async def get_result(

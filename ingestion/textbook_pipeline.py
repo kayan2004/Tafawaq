@@ -26,17 +26,7 @@ _SOURCE_TYPE_MAP = {
 
 _SKIP_TYPES = {"blank", "preface", "just_for_fun"}
 
-_TAG_PROMPT = """\
-You are tagging a section of a Lebanese Grade 12 Mathematics textbook for a study platform.
-
-Given the content below, return ONLY a JSON object with exactly two keys:
-- "topic": the main mathematical topic (e.g. "Logic", "Functions", "Integration", "Probability")
-- "subtopic": a specific subtopic (e.g. "Logical connectives", "Limits at infinity")
-
-Content:
-{content}
-
-Return only the JSON object, no explanation."""
+from prompts.tagging_textbook import TAG_PROMPT as _TAG_PROMPT
 
 
 class SkipFile(Exception):

@@ -58,6 +58,12 @@ class InvalidAnswerSubmission(LebaneseCoachError):
     """Submitted answers reference exercise IDs not present in the exam."""
 
 
+# ── 502 Bad Gateway ──────────────────────────────────────────────────────────
+
+class EvaluatorResponseError(LebaneseCoachError):
+    """Evaluator returned a response that could not be parsed into a valid result."""
+
+
 # ── 503 Service Unavailable ──────────────────────────────────────────────────
 
 class AIServiceUnavailable(LebaneseCoachError):
