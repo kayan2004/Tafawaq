@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { getToken, getActiveSession, generateExamStream, submitExamAnswers, ExamExercise } from "../lib/api";
+import { getToken, getActiveSession, generateExamStream, submitExamAnswers, type ExamExercise } from "../lib/api";
 import { RichMath } from "../lib/math";
 import { Pill } from "../lib/ui";
 

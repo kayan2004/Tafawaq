@@ -65,7 +65,7 @@ async def generate_exam(
 
     try:
         raw = await asyncio.to_thread(
-            call_claude, messages, system=system, api_key=secrets.anthropic_api_key, max_tokens=8192
+            call_claude, messages, system=system, api_key=secrets.anthropic_api_key, max_tokens=16000
         )
         parsed = parse_generation_response(raw)
         exam_content = ExamContent.model_validate(parsed["exam"])

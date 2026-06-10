@@ -95,7 +95,7 @@ export function History() {
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (view.kind === "detail") {
     const { session, summary } = view;
-    const markdown = session.exam_content?.markdown ?? "";
+    const exercises = session.exam_content?.exercises ?? [];
     return (
       <div className="page">
         <div className="exam-top">
@@ -124,8 +124,24 @@ export function History() {
         </div>
 
         <div className="card exam-body">
-          {markdown ? (
-            <RichMath>{markdown}</RichMath>
+          {exercises.length > 0 ? (
+            exercises.map((ex, idx) => (
+              <div key={ex.id} className="exam-exercise">
+                <div className="exam-exercise-header">
+                  <span className="exam-ex-num">Exercise {["I","II","III","IV","V","VI"][idx] ?? ex.id}</span>
+                  <span className="exam-ex-topic">{ex.topic}</span>
+                  <span className="exam-ex-marks">{ex.total_marks} pts</span>
+                </div>
+                <div className="exam-exercise-stem"><RichMath>{ex.content}</RichMath></div>
+                {ex.parts.map((p) => (
+                  <div key={p.part} className="exam-part">
+                    <span className="exam-part-label">{p.part})</span>
+                    <div className="exam-part-content"><RichMath>{p.content}</RichMath></div>
+                    <span className="exam-part-marks">({p.marks} pt{p.marks !== 1 ? "s" : ""})</span>
+                  </div>
+                ))}
+              </div>
+            ))
           ) : (
             <p style={{ color: "var(--ink-2)", fontSize: 14, margin: 0 }}>
               Exam content unavailable for this session.
