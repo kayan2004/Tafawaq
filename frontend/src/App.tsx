@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 import { Icons } from "./lib/icons";
 import type { IconName } from "./lib/icons";
 import { STUDENT } from "./data/mock";
+import { Books } from "./pages/Books";
 import { Chat } from "./pages/Chat";
 import { ComingSoon } from "./pages/ComingSoon";
 import { Exam } from "./pages/Exam";
-import { History } from "./pages/History";
 import { Login } from "./pages/Login";
 import { getToken, clearToken, getMe } from "./lib/api";
 import type { PageId, PageProps } from "./types";
@@ -23,31 +23,39 @@ interface NavEntry {
 // Only chat is active — all other tabs are temporarily disabled.
 const NAV: NavEntry[] = [
   { id: "dashboard", label: "Dashboard",      icon: "dashboard", tab: true,  disabled: true  },
-  { id: "exam",      label: "Practice Exam",  icon: "exam",      tab: true,  disabled: false },
+  { id: "exam",      label: "Exams",          icon: "exam",      tab: true,  disabled: false },
   { id: "past",      label: "Past Questions", icon: "past",                  disabled: true  },
   { id: "topics",    label: "Topics",         icon: "topics",    tab: true,  disabled: true  },
   { id: "chat",      label: "Chat",           icon: "chat",      tab: true,  disabled: false },
-  { id: "history",   label: "History",        icon: "history",   tab: true,  disabled: false },
+  { id: "books",     label: "Books",          icon: "book",                  disabled: false },
 ];
 
-const VALID_PAGES: PageId[] = ["dashboard", "exam", "past", "topics", "chat", "history", "results"];
+const VALID_PAGES: PageId[] = ["dashboard", "exam", "past", "topics", "chat", "results", "books"];
 
 function isPageId(value: string): value is PageId {
   return (VALID_PAGES as string[]).includes(value);
 }
 
-const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "history">, { title: string; icon: IconName; blurb: string }> = {
+const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "books">, { title: string; icon: IconName; blurb: string }> = {
   past:    { title: "Past Questions",   icon: "past",    blurb: "Retrieve real GS exam questions by topic from the archive. Coming soon." },
   topics:  { title: "Topics",           icon: "topics",  blurb: "Frequency analytics across the last 10 GS sessions. Coming soon." },
   results: { title: "Results",          icon: "scale",   blurb: "Dual-evaluator grading with discrepancy highlighting. Coming soon." },
 };
 
-function renderPage(page: PageId, _props: PageProps, onLogout: () => void, isAdmin: boolean): ReactNode {
-  if (page === "chat" || page === "dashboard") return <Chat onLogout={onLogout} isAdmin={isAdmin} />;
-  if (page === "exam") return <Exam />;
-  if (page === "history") return <History />;
+function renderPage(
+  page: PageId,
+  _props: PageProps,
+  onLogout: () => void,
+  isAdmin: boolean,
+  onCommand: (cmd: string) => void,
+  triggerGenerate: boolean,
+  onGenerateConsumed: () => void,
+): ReactNode {
+  if (page === "chat" || page === "dashboard") return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} />;
+  if (page === "exam") return <Exam triggerGenerate={triggerGenerate} onGenerateConsumed={onGenerateConsumed} />;
+  if (page === "books") return <Books />;
   const p = PLACEHOLDERS[page as keyof typeof PLACEHOLDERS];
-  if (!p) return <Chat onLogout={onLogout} isAdmin={isAdmin} />;
+  if (!p) return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} />;
   return <ComingSoon title={p.title} icon={p.icon} blurb={p.blurb} />;
 }
 
@@ -72,10 +80,20 @@ export default function App() {
     return isPageId(h) ? h : "chat";
   });
 
+  const [pendingGenerate, setPendingGenerate] = useState(false);
+
   const navigate = (id: PageId) => {
     setPage(id);
     window.scrollTo({ top: 0 });
   };
+
+  const handleCommand = (cmd: string) => {
+    if (cmd === "generate") {
+      setPendingGenerate(true);
+    }
+  };
+
+  const handleGenerateConsumed = () => setPendingGenerate(false);
 
   useEffect(() => {
     if ((window.location.hash || "").replace("#", "") !== page) {
@@ -98,6 +116,7 @@ export default function App() {
   }
 
   const isChat = page === "chat";
+  const isBooks = page === "books";
 
   return (
     <div className="app">
@@ -138,8 +157,8 @@ export default function App() {
         </div>
       </aside>
 
-      <main className={`main ${isChat ? "main-chat" : ""}`}>
-        {renderPage(page, { navigate }, handleLogout, isAdmin)}
+      <main className={`main ${isChat ? "main-chat" : ""} ${isBooks ? "main-books" : ""}`}>
+        {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, pendingGenerate, handleGenerateConsumed)}
       </main>
 
       {/* mobile bottom tab bar — chat only active */}

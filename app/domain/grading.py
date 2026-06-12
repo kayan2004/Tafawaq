@@ -10,6 +10,7 @@ class PartResult(BaseModel):
     score: float
     max_score: float
     feedback: str = ""
+    correction: str = ""
 
 
 class ExerciseResult(BaseModel):
@@ -32,3 +33,9 @@ class GradingResult(BaseModel):
     discrepancy_flagged: bool
     discrepancy_details: str | None = None
     average_total: float
+
+
+class CorrectionResult(GradingResult):
+    """GradingResult enriched with the exam questions and student's answers for display."""
+    exam_content: dict
+    student_answers: list[dict]

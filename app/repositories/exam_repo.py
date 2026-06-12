@@ -141,6 +141,20 @@ async def get_result(
     return result.scalar_one_or_none()
 
 
+async def get_result_with_session(
+    session: AsyncSession,
+    session_id: UUID,
+) -> tuple[ExamResultORM, ExamSessionORM] | None:
+    """Returns (result_row, session_row) or None if the result does not exist."""
+    result_row = await get_result(session, session_id)
+    if result_row is None:
+        return None
+    session_row = await get_session(session, result_row.session_id)
+    if session_row is None:
+        return None
+    return result_row, session_row
+
+
 async def get_history(
     session: AsyncSession,
     user_id: UUID,

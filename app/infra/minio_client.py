@@ -6,6 +6,7 @@ from minio import Minio
 from app.infra.vault import AppSecrets
 
 PAST_EXAMS_BUCKET = "past-exams"
+TEXTBOOKS_BUCKET = "textbooks"
 
 
 def get_minio_client(secrets: AppSecrets) -> Minio:

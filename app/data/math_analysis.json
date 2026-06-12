@@ -1,0 +1,499 @@
+{
+  "metadata": {
+    "title": "Lebanese Official GS Grade 12 Mathematics — English Track: General Structural Reference",
+    "description": "Era-agnostic reference describing the structure, exercise types, phrasing conventions, and topic patterns of the Lebanese GS Grade 12 Mathematics baccalaureate exam (English track)."
+  },
+
+  "hard_constraints": {
+    "note": "These hold true across all exams without exception.",
+    "total_marks": 20,
+    "duration_hours": 3,
+    "calculator_permission": {
+      "type": "Non-programmable; cannot store information or draw graphs",
+      "exact_arabic": "يسمح باستعمال آلة حاسبة غير قابلة للبرمجة او اختزان المعلومات او رسم البيانات"
+    },
+    "candidate_order_flexibility": {
+      "description": "Candidates may answer exercises in any order",
+      "exact_arabic": "يستطيع المرّشح الإجابة بالترتيب الذي يناسبه (دون الالتزام بترتيب المسائل الواردة في المسابقة)"
+    },
+    "language": "English (GS English track)",
+    "probability_exercise_always_present": true,
+    "function_analysis_always_present": true,
+    "MCQ_exercise_always_exercise_I": true
+  },
+
+  "exam_structure": {
+    "number_of_exercises": {
+      "compulsory_format": 5,
+      "choice_format": "7 presented, student answers exactly 5",
+      "note": "In the choice format, all exercises carry equal weight (4 pts each) and the student crosses out the exercises they do not answer."
+    },
+    "marks_per_exercise": {
+      "MCQ": "2–4 pts",
+      "complex_numbers": "3–4 pts",
+      "probability": "2.5–4 pts",
+      "similitudes_transformations": "4–6 pts",
+      "function_analysis": "4–8 pts (heaviest exercise in compulsory format; equal weight in choice format)"
+    },
+    "topic_positions": {
+      "exercise_I": "MCQ (4 questions, 4 options each; topics drawn from across the syllabus)",
+      "exercise_II": "Complex numbers in the plane (affix transformation, locus)",
+      "exercise_III": "Probability (urns, conditional probability, random variable, expected value)",
+      "exercise_IV": "Direct plane similitudes and transformations",
+      "exercise_V_or_beyond": "Function analysis — Part A (auxiliary function) + Part B (full curve study) in compulsory format; self-contained in choice format"
+    },
+    "sub_part_labeling": {
+      "exercise_parts": "Part A / Part B (/ Part C in older format) — capital letter",
+      "questions_within_part": "Numbered: 1), 2), 3)...",
+      "sub_questions": "Lettered: a-, b-, c-..."
+    }
+  },
+
+  "exercise_templates": {
+    "exercise_I_MCQ": {
+      "marks_range": "2–4 pts",
+      "format": "Table with 4 rows; each row = one question + 4 proposed answers (a, b, c, d)",
+      "instruction_phrase_canonical": "In the table below, only one of the proposed answers to each question is correct. Write down the number of each question and give, with justification, the answer corresponding to it.",
+      "instruction_phrase_variants": [
+        "In the table below, only one of the proposed answers to each question is correct. Write down the number of each question and give, with justification, the answer corresponding to it.",
+        "In the table below, only one among the proposed answers to each question is correct. Write the number of each question and give, with justification, the answer that corresponds to it.",
+        "In the table below, only one among the proposed answers to each question is correct. Write down the number of each question and give, with justification, the corresponding answer."
+      ],
+      "MCQ_topic_pool": [
+        "Differential equations (particular solutions)",
+        "Limits (L'Hôpital, squeeze theorem, standard limits)",
+        "Complex numbers (argument, modulus, algebraic form, exponential form)",
+        "Antiderivatives and integrals",
+        "Sequences (convergence, recursive limits)",
+        "Domain of definition of composed functions (ln, arccos, etc.)",
+        "Combinatorics (arrangements, combinations, codes)",
+        "Inverse trigonometric functions (arccos, arctan)",
+        "Odd/even function integral properties",
+        "Modulus of a complex expression"
+      ]
+    },
+
+    "exercise_complex_numbers": {
+      "marks_range": "3–4 pts",
+      "intro_phrase": "The complex plane is referred to a direct orthonormal system (O; u, v). Consider the points A, M and M' with affixes zA = ..., zM = z and zM' = z' such that z' = ... with z ≠ ...",
+      "standard_subtask_sequence": [
+        "Write z' in exponential form for a specific z",
+        "Write z in algebraic form given condition z' = z",
+        "Show OM' = AM/OM (ratio property)",
+        "Show M' moves on a circle (C) when M satisfies a condition; find center and radius",
+        "Show (OM) ∥ (M'A) or (OM) ⊥ (M'A)",
+        "Show MM' = OA when M is on circle (C)"
+      ]
+    },
+
+    "exercise_probability": {
+      "marks_range": "2.5–4 pts",
+      "setup_types": [
+        "Urns containing colored balls (most common)",
+        "Bags containing bills of different denominations with a die",
+        "Two fair dice rolled simultaneously (X = maximum or given rule)",
+        "Cards in a box (blue/red with odd/even numbers)",
+        "Compound sequential experiment (draw from U1 then U2)"
+      ],
+      "event_naming_convention": "Single capital letters: A, B, C, D, E, F, R (Red), W (White/Win), S (Same color), etc.",
+      "standard_subtask_sequence": [
+        "Calculate P(A/B) — conditional probability",
+        "Verify that P(Event) = [given fraction]",
+        "Calculate total probability P(A) = P(A∩B) + P(A∩B̄)",
+        "Knowing that [condition], calculate the probability that [event]",
+        "Calculate P(A∩B)",
+        "Determine the probability distribution table of random variable X",
+        "Calculate E(X) (expected value)",
+        "If the game is repeated N times, estimate the number of [outcomes]"
+      ],
+      "verify_phrase": "Verify that P(...) = [fraction].",
+      "conditional_phrasing": "Knowing that ..., calculate the probability that ...",
+      "deduce_phrasing": "Deduce P(E).",
+      "same_color_phrasing": "Knowing that the [selected balls / drawn items] have the same color, calculate the probability that ..."
+    },
+
+    "exercise_similitudes_transformations": {
+      "marks_range": "4–6 pts",
+      "intro_phrase": "Let S be the direct plane similitude that maps A onto B and B onto C.",
+      "standard_subtask_sequence": [
+        "Calculate the ratio k of S (or: Show that k = ... and α = ... are the ratio and angle of S)",
+        "Show that a named point is the center of S",
+        "Determine the image of a line or point under S",
+        "Show two lines are parallel / perpendicular after transformation",
+        "Determine S∘S or the composition S∘S'",
+        "Show the composition is a dilation (when angles cancel)",
+        "Write the complex form of S: z' = az + b",
+        "Determine the affix of the center W of S (solve zW = a·zW + b)",
+        "Show three points are collinear as a consequence"
+      ]
+    },
+
+    "exercise_function_analysis": {
+      "marks_range": "4–8 pts",
+      "structure": "Part A (auxiliary function g) + Part B (main function f with full curve study). In the choice format, the exercise is self-contained with no Part A/B split.",
+      "part_A_always_auxiliary_function": true,
+      "part_B": "Full curve study — see curve_study_sequence",
+      "function_type": "Always involves eˣ and/or ln(x); pure rational functions without a transcendental component have not appeared.",
+      "auxiliary_function_connection": "Part A establishes the sign of g(x) or h(x); Part B opens with 'Verify that f'(x) = g(x)' or 'Verify that f'(x) = eˣ·g(x)'."
+    }
+  },
+
+  "curve_study_sequence": {
+    "description": "The fixed sub-part sequence that appears inside the function/curve study portion (Part B, or the full exercise in the choice format). Steps always appear in this order when present; not all steps appear in every exam.",
+    "steps": [
+      {
+        "step": 1,
+        "label": "Limits at domain boundaries",
+        "frequency": "Always present",
+        "typical_phrases": [
+          "Determine lim f(x) as x → +∞.",
+          "Determine lim f(x) as x → −∞.",
+          "Determine lim f(x) as x → 0⁺.",
+          "Determine lim f(x) and lim f(x)/x. Give a graphical interpretation.",
+          "Determine lim f(x) and deduce an asymptote to (C)."
+        ]
+      },
+      {
+        "step": 2,
+        "label": "Asymptotes (deduced from limits)",
+        "frequency": "Always present",
+        "asymptote_types_observed": ["Horizontal: y = k", "Oblique: y = ax + b (most common in function exercises)", "Vertical: x = a"],
+        "typical_phrases": [
+          "Deduce an asymptote to (C).",
+          "Show that the line (d) with equation y = x is an asymptote to (C).",
+          "Show that (d) is an asymptote to (C) at −∞.",
+          "Show that (d) is an asymptote to (C) at +∞.",
+          "Determine the asymptotes to (C).",
+          "Determine lim f(x) and show that line (d) with equation y = −x is an asymptote to (C).",
+          "Show that line (d') with equation y = −x + 2 is an asymptote to (C).",
+          "Show that (C) is included between (d) and (d')."
+        ]
+      },
+      {
+        "step": 3,
+        "label": "Center of symmetry (optional)",
+        "frequency": "Occasional — present when f is a logistic/sigmoid-type function with an inflection at a midpoint",
+        "typical_phrases": [
+          "Show that point W(0; 1) is the center of symmetry of curve (C).",
+          "Prove that the curve (C) has a center of symmetry W(a, b)."
+        ]
+      },
+      {
+        "step": 4,
+        "label": "Derivative f'(x) and table of variations",
+        "frequency": "Always present",
+        "typical_phrases": [
+          "Calculate f'(x) and set up the table of variations of f.",
+          "Verify that f'(x) = ... and set up the table of variations of f.",
+          "Show that f'(x) = ... and set up the table of variations of the function f.",
+          "Verify that f'(x) = h(x) and set up the table of variations of f.",
+          "Verify that f'(x) = e^x·g(x) and set up the table of variations of the function f."
+        ],
+        "sign_inequality_variant": "For all real numbers x, prove that [a] ≤ f'(x) ≤ [b]."
+      },
+      {
+        "step": 5,
+        "label": "Sign inequality / positivity proof (auxiliary to step 4)",
+        "frequency": "Common — when Part A established sign of h(x) or g(x) which equals f'(x)",
+        "typical_phrases": [
+          "For all real numbers x, verify that h(x) ≥ 0.",
+          "Show that f(x) > 0 for all x.",
+          "Deduce that eˣ ≥ x + 1 for all x."
+        ]
+      },
+      {
+        "step": 6,
+        "label": "Equation f(x) = 0: unique root + numerical verification",
+        "frequency": "Very common",
+        "typical_phrases": [
+          "Show that the equation f(x) = 0 has a unique root α, then verify that −0.7 < α < −0.6.",
+          "Prove that the equation f(x) = 0 has a unique root α, then verify that −0.7 < α < −0.6.",
+          "Show that the equation f(x) = 0 has, on ℝ, a unique root α. Verify that 0.7 < α < 0.8.",
+          "Show that the equation f(x) = 0 has two roots α and 0. Verify that −1.6 < α < −1.5.",
+          "Show that the equation f(x) = 0 has a unique root α. Verify that 1.6 < α < 1.7.",
+          "Show that the equation f(x) = 0 has a unique root α and that 0.6 < α < 0.7."
+        ]
+      },
+      {
+        "step": 7,
+        "label": "Inflection point",
+        "frequency": "Common",
+        "typical_phrases": [
+          "Show that (C) has an inflection point whose coordinates are to be determined.",
+          "Prove that the curve (C) has an inflection point W whose coordinates are to be determined.",
+          "Show that the curve (C) has an inflection point I with abscissa −2.",
+          "(C) has a point of inflection W(0, 2). Find an equation of (T), the tangent to (C) at the point W."
+        ]
+      },
+      {
+        "step": 8,
+        "label": "Tangent at a special point",
+        "frequency": "Common",
+        "typical_phrases": [
+          "Write an equation of (∆), the tangent to (C) at its inflection point.",
+          "Write an equation of (T), the tangent to (C) at the point E with abscissa 0.",
+          "Find an equation of (T), the tangent to (C) at the point W.",
+          "Let E be the point on (C) where the tangent (D) to (C) is parallel to the line (d). Determine the coordinates of E."
+        ]
+      },
+      {
+        "step": 9,
+        "label": "Relative positions of (C) and an asymptote/line",
+        "frequency": "Very common",
+        "typical_phrases": [
+          "Study, according to the values of x, the relative positions of (C) and (d).",
+          "Discuss, according to the values of x, the relative positions of (C) and (d).",
+          "Show that (C) is below (d) for all x ∈ ]0; +∞[.",
+          "Verify that f(x) − x = ... and study the relative positions."
+        ],
+        "sign_study_method": "Factor f(x) − [asymptote expression]; study sign by interval using roots and variation table"
+      },
+      {
+        "step": 10,
+        "label": "Draw the curve",
+        "frequency": "Always present",
+        "typical_phrases": [
+          "Draw (d) and (C).",
+          "Draw (d), (d') and (C).",
+          "Draw (d), (∆), (d') and (C).",
+          "Draw (d), (∆), (d) and (C).",
+          "Draw (T) and (C)."
+        ]
+      },
+      {
+        "step": 11,
+        "label": "Inverse function (optional)",
+        "frequency": "Common — present in majority of exams",
+        "typical_phrases": [
+          "Show that f has an inverse function g whose domain of definition is to be determined.",
+          "Prove that f has, over [0, +∞[, an inverse function f⁻¹ and determine its domain of definition.",
+          "Let g be the inverse function of f, and denote by (G) the representative curve of g in the system O; i, j.",
+          "a- Draw (G).  b- Solve the inequality ln(g(x)) ≤ 0.",
+          "Determine the asymptotes to the representative curve (C') of g.",
+          "Write an equation of the line (T), the tangent to (C') at its center of symmetry.",
+          "Draw (C') and (T) in the same system as that of (C)."
+        ]
+      },
+      {
+        "step": 12,
+        "label": "Area calculation",
+        "frequency": "Very common",
+        "typical_phrases": [
+          "Calculate, in cm², the area of the region bounded by the curve (G), the line (d) and the x-axis.",
+          "Deduce the area of the region bounded by (C), (d) and the two lines with equations x = α and x = 0.",
+          "Calculate, in terms of α, the area of the region bounded by (C), (d) and the lines with equations x = α and x = e.",
+          "Show that A(α) = (1 + α − eα) units of area.",
+          "Show that the area of the region bounded by (C), (C') and the coordinates axes is equal to 4ln(2 + eλ) − 2λ² units of area."
+        ]
+      }
+    ]
+  },
+
+  "phrasing_conventions": {
+    "function_introduction": {
+      "canonical_forms": [
+        "Consider the function f defined on ℝ as f(x) = ...",
+        "Consider the function f defined over ]0; +∞[ as f(x) = ...",
+        "Consider the function f defined over ]0, +∞[ as f(x) = ...",
+        "Let f be the function defined over ___ as f(x) = ...",
+        "Let f be the function defined on ℝ as f(x) = ...",
+        "Consider the two functions f and g defined over ]0; +∞[ as f(x) = ... and g(x) = ..."
+      ]
+    },
+    "curve_introduction": {
+      "canonical": "Denote by (C) the representative curve of f in an orthonormal system (O; i, j).",
+      "variants": [
+        "Denote by (C) its representative curve in an orthonormal system.",
+        "Denote by (C) its representative curve in an orthonormal system O; i, j.",
+        "Denote by (C) the representative curve of f in an orthonormal system O; i, j; graphical unit is 2 cm.",
+        "Denote by (C) the representative curve of f in an orthonormal system (O; i, j)."
+      ]
+    },
+    "limits": {
+      "determine": "Determine lim f(x).",
+      "calculate": "Calculate lim f(x).",
+      "with_ratio_graphical": "Determine lim f(x) and lim f(x)/x. Give a graphical interpretation.",
+      "deduce_asymptote": "Determine lim f(x) and deduce an asymptote to (C).",
+      "show_asymptote": "Determine lim f(x) and show that line (d) with equation y = ... is an asymptote to (C).",
+      "show_at_minus_inf": "Determine lim f(x) and show that (d) is an asymptote to (C) at −∞.",
+      "show_oblique_positive": "Show that lim [f(x) − x] = 0, then (d): y = x is an asymptote to (C)."
+    },
+    "asymptotes": {
+      "show_oblique": "Show that the line (d) with equation y = ... is an asymptote to (C).",
+      "show_at_direction": "Show that (d) is an asymptote to (C) at −∞.",
+      "show_at_plus_inf": "Show that (d) is an asymptote to (C) at +∞.",
+      "determine": "Determine the asymptotes to (C).",
+      "deduce_one": "Deduce an asymptote to (C).",
+      "deduce_plural": "Deduce the asymptotes to (C).",
+      "show_between_two": "Show that (C) is included between (d) and (d').",
+      "show_below": "Show that (C) is below (d) for all x ∈ ]0; +∞[."
+    },
+    "derivative_and_variations": {
+      "calculate_and_table": "Calculate f'(x) and set up the table of variations of f.",
+      "verify_and_table": "Verify that f'(x) = ... and set up the table of variations of f.",
+      "show_and_table": "Show that f'(x) = ... and set up the table of variations of the function f.",
+      "just_table": "Set up the table of variations of the function f.",
+      "sign_bound": "For all real numbers x, prove that [a] ≤ f'(x) ≤ [b]."
+    },
+    "inflection_point": {
+      "standard": "Show that (C) has an inflection point whose coordinates are to be determined.",
+      "with_W_label": "Prove that the curve (C) has an inflection point W whose coordinates are to be determined.",
+      "given_point": "(C) has a point of inflection W(0, 2). Find an equation of (T), the tangent to (C) at the point W.",
+      "with_abscissa": "Show that the curve (C) has an inflection point I with abscissa −2."
+    },
+    "tangent": {
+      "write_at_point": "Write an equation of (T), the tangent to (C) at ...",
+      "write_at_inflection": "Write an equation of (∆), the tangent to (C) at its inflection point.",
+      "find_at_W": "Find an equation of (T), the tangent to (C) at the point W.",
+      "parallel_to_line": "Let E be the point on (C) where the tangent (D) to (C) is parallel to the line (d). Determine the coordinates of E."
+    },
+    "relative_positions": {
+      "study": "Study, according to the values of x, the relative positions of (C) and (d).",
+      "discuss": "Discuss, according to the values of x, the relative positions of (C) and (d).",
+      "verify_expression_first": "Verify that f(x) − x = ... and [then study relative positions].",
+      "result_phrasing": "(C) is above (d) / (C) is below (d) / (C) intersects (d) at point O"
+    },
+    "unique_root": {
+      "show_then_verify": "Show that the equation f(x) = 0 has a unique root α, then verify that a < α < b.",
+      "prove_then_verify": "Prove that the equation f(x) = 0 has a unique root α, then verify that −0.7 < α < −0.6.",
+      "on_R": "Show that the equation f(x) = 0 has, on ℝ, a unique root α. Verify that a < α < b.",
+      "two_roots": "Show that the equation f(x) = 0 has two roots α and 0. Verify that −1.6 < α < −1.5.",
+      "unique_and_bounds": "Show that the equation f(x) = 0 has a unique root α and that 0.6 < α < 0.7.",
+      "numerical_check_method": "Evaluate f at both endpoints; show product is negative (IVT) or signs differ"
+    },
+    "draw_curve": {
+      "with_one_asymptote": "Draw (d) and (C).",
+      "with_tangent": "Draw (d), (∆) and (C).",
+      "with_two_asymptotes": "Draw (d), (d') and (C).",
+      "with_two_asymptotes_and_tangent": "Draw (d), (∆), (d') and (C).",
+      "all_four": "Draw (d), (∆), (d) and (C).",
+      "in_same_system": "Draw (C') and (T) in the same system as that of (C).",
+      "with_tangent_T": "Draw (T) and (C)."
+    },
+    "inverse_function": {
+      "show_existence": "Show that f has an inverse function g whose domain of definition is to be determined.",
+      "prove_on_interval": "Prove that f has, over [0, +∞[, an inverse function f⁻¹ and determine its domain of definition.",
+      "use_monotone_argument": "f is continuous and strictly [increasing/decreasing] over [interval], then it has an inverse function f⁻¹.",
+      "let_g": "Let g be the inverse function of f, and denote by (G) the representative curve of g in the system O; i, j.",
+      "draw_G": "a- Draw (G).  b- Solve the inequality ...",
+      "asymptotes_of_C_prime": "Determine the asymptotes to the representative curve (C') of g.",
+      "tangent_at_center": "Write an equation of the line (T), the tangent to (C') at its center of symmetry."
+    },
+    "area": {
+      "calculate_in_cm2": "Calculate, in cm², the area of the region bounded by ...",
+      "deduce": "Deduce the area of the region bounded by ...",
+      "in_terms_of_alpha": "Calculate, in terms of α, the area of the region bounded by (C), (d) and the lines with equations x = α and x = e.",
+      "show_area_formula": "Show that A(α) = ... units of area.",
+      "deduce_from_symmetry": "the line y = x divides the region ... into two regions of equal areas"
+    },
+    "differential_equation": {
+      "verify_particular_solution": "Verify that u(x) = ... is a particular solution of (E).",
+      "form_DE_for_z": "Form the differential equation (E') satisfied by z.",
+      "solve_and_deduce_general": "Solve (E') and deduce the general solution of (E).",
+      "find_particular_initial_value": "Find the particular solution of (E) verifying y(0) = [value].",
+      "find_particular_through_point": "Find the particular solution of (E) whose representative curve...passes through the point A(...) [with tangent parallel to x-axis].",
+      "substitution_intro": "Let y = z + u where z is a function of x.",
+      "substitution_intro_2": "Let y = z + f(x) with z ≠ 0.",
+      "substitution_intro_3": "Let z = xy."
+    },
+    "center_of_symmetry": {
+      "show_phrase": "Show that point W(0; 1) is the center of symmetry of curve (C).",
+      "verify_method": "Verify that f(a) + f(2c − a) = 2b for the center (c, b); or show f(−x) + f(x) = 2k"
+    },
+    "space_geometry": {
+      "system_intro": "In the space referred to a direct orthonormal system O; i, j, k, consider...",
+      "verify_on_line": "Verify that E is on (d).",
+      "show_equation_plane": "Show that [equation] = 0 is an equation of (P).",
+      "show_equation_example": "Show that 2x – y + 3 = 0 is an equation of (P).",
+      "projection_phrase": "Determine the coordinates of H, the orthogonal projection of F on (d).",
+      "projection_phrase_onto_plane": "Determine the coordinates of K, the orthogonal projection of A on (P).",
+      "parametric_phrase": "Write a system of parametric equations of ...",
+      "volume_phrase": "Calculate the volume of the tetrahedron ABCD.",
+      "tangent_circle": "Show that line (d) is tangent to circle (C) at point F.",
+      "skew_lines": "Show that (AB) and (D) are skew (not coplanar).",
+      "perp_bisector": "Denote by (∆) the perpendicular bisector of [AB] in the plane (P).",
+      "perp_bisector_direction": "Verify that V(2; 1; −1) is a direction vector of the line (∆)."
+    },
+    "conics": {
+      "show_on_ellipse": "Show that ... is a vertex of (E).",
+      "verify_equation": "Verify that x²/a² + y²/b² = 1 is an equation of (E).",
+      "tangent_on_conic": "Write an equation of the tangent (T) to (E) at L.",
+      "directrix_phrase": "Write an equation of (d), the directrix of (E) associated to F.",
+      "parabola_vertex_focus": "the parabola with vertex V(a, b) and focus F(c, d)",
+      "show_common_tangent": "Prove that (GL) is a common tangent to (P) and (H).",
+      "eccentricity_phrase": "the ellipse (E) with focus F, associated directrix (d) and eccentricity e = [value]"
+    },
+    "similitudes": {
+      "intro_pattern": "Let S be the direct plane similitude that maps A onto B and B onto C.",
+      "intro_with_center": "Denote by S the direct plane similitude with center I that transforms C onto B and D onto G.",
+      "show_ratio_angle": "Show that the ratio of S is equal to [k] and that [α] is an angle of S.",
+      "determine_ratio_angle": "Determine the ratio (scale factor) k and an angle α of S.",
+      "show_center": "Show that ... is the center of S.",
+      "image_of_line": "Determine the image of line (AC) under S.",
+      "complex_form": "Write the complex form of S.",
+      "affix_center": "Determine the affix of the center W of S.",
+      "composition_nature": "Determine the nature, the center and the ratio of h = S∘S'.",
+      "show_collinear": "Show that I, D and L are collinear.",
+      "angle_of_rotation": "Denote by R the rotation with center O and angle π/2.",
+      "show_dilation": "S∘S is a dilation. Find an angle of S∘S and calculate its ratio."
+    },
+    "complex_plane": {
+      "system_intro": "The complex plane is referred to a direct orthonormal system (O; u, v).",
+      "point_affix": "Consider the points A, M and M' with affixes zA = ..., zM = z and zM' = z' such that z' = ... with z ≠ ...",
+      "exponential_form": "Write z' in exponential form when z = ...",
+      "algebraic_form": "Write z in algebraic form in the case where z' = z.",
+      "show_ratio": "Show that OM' = AM/OM.",
+      "locus_circle": "Show that when M varies on ..., the point M' varies on a circle (C) whose center and radius are to be determined.",
+      "nature_triangle": "Determine the nature of triangle ...",
+      "arg_condition_phrase": "Show that arg(z') = arg(...) + 2kπ, k ∈ ℤ.",
+      "show_parallel": "Deduce that (OM) and (M'A) are parallel.",
+      "show_MM_prime": "Deduce that if M belongs to (C), then MM' = OA."
+    },
+    "mark_notation": {
+      "format": "Parenthetical after exercise Roman numeral: I- (2 points), II- (2.5 points), VI- (7 points)",
+      "sub_part_labeling": "Numbered: 1), 2), 3)... then lettered: a-, b-, c-...",
+      "part_labeling": "Part A / Part B / Part C (capital letter) for subdivisions of the function exercise"
+    }
+  },
+
+  "topic_cooccurrence_patterns": {
+    "always_present": [
+      {
+        "topic": "Function analysis",
+        "note": "Present in every exam. Always the heaviest or one of the heavier exercises."
+      },
+      {
+        "topic": "Probability",
+        "note": "Present in every exam."
+      },
+      {
+        "topic": "Similitudes / Transformations",
+        "note": "Present in every exam."
+      },
+      {
+        "topic": "Complex numbers",
+        "note": "Present in every exam — at minimum as MCQ items; often as a full standalone exercise."
+      }
+    ]
+  },
+
+  "function_types_observed": {
+    "note": "The function in the analysis exercise always involves eˣ and/or ln(x). Pure rational functions without a transcendental component have not appeared.",
+    "exponential_dominant": [
+      "f(x) = eˣ / (eˣ + x)",
+      "f(x) = x − (x+1)eˣ",
+      "f(x) = 2eˣ/(eˣ+1) − x  (two oblique asymptotes)",
+      "f(x) = 2 − (x+2)e⁻ˣ",
+      "f(x) = e²ˣ − (x+3)eˣ",
+      "f(x) = x(eˣ − 1)",
+      "f(x) = 2 / (1 − xe⁻ˣ)"
+    ],
+    "logarithm_dominant": [
+      "f(x) = (x + ln x) / x²",
+      "f(x) = (ln x / x)²",
+      "g(x) = x + ln x / x",
+      "f(x) = x + ln x − ln(x+1)"
+    ],
+    "auxiliary_function_pattern": "A simpler function g(x) or h(x) (e.g., g(x) = x + 2 + 2e⁻ˣ, h(x) = 1 + xeˣ, g(x) = (x+1)eˣ − 1) is introduced in Part A. Its sign is established. Then in Part B: 'Verify that f'(x) = g(x)' or 'Verify that f'(x) = eˣ·g(x)'."
+  }
+}

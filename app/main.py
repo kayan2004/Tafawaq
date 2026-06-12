@@ -67,6 +67,7 @@ from app.api.routers import chat as _chat  # noqa: E402, F401
 from app.api.routers import exams as _exams  # noqa: E402, F401
 from app.api.routers import grading as _grading  # noqa: E402, F401
 from app.api.routers import health as _health  # noqa: E402, F401
+from app.api.routers import official_exams as _official_exams  # noqa: E402, F401
 from app.api.routers import questions as _questions  # noqa: E402, F401
 from app.api.routers import textbook as _textbook  # noqa: E402, F401
 from app.api.routers import topics as _topics  # noqa: E402, F401
@@ -82,5 +83,6 @@ app.include_router(_topics.router)
 # otherwise be shadowed by the exams router's GET /exams/{session_id} param route.
 app.include_router(_grading.router)
 app.include_router(_exams.router)
+app.include_router(_official_exams.router)
 app.include_router(_textbook.router)
 app.include_router(_chat.router)

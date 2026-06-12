@@ -26,6 +26,8 @@ class ExamExercise(BaseModel):
     total_marks: float
     content: str    # exercise stem with LaTeX
     parts: list[ExamPart]
+    is_validated: bool = True
+    validation_notes: str = ""
 
 class ExamContent(BaseModel):
     exercises: list[ExamExercise] = []
@@ -42,6 +44,16 @@ class AnswerKeyExercise(BaseModel):
 
 class AnswerKey(BaseModel):
     exercises: list[AnswerKeyExercise] = []
+
+
+# ── Official exam (shared past exam, not per-user) ───────────────────────────
+
+class OfficialExam(BaseModel):
+    id: UUID
+    year: int
+    session_label: str
+    exam_content: ExamContent
+    created_at: datetime
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
@@ -82,6 +94,13 @@ class TopicStat(BaseModel):
 
 
 # ── Textbook ─────────────────────────────────────────────────────────────────
+
+class TextbookPageMeta(BaseModel):
+    page_number: int
+    chapter: str
+    section: str
+    page_type: str
+
 
 class TextbookPage(BaseModel):
     page_number: int

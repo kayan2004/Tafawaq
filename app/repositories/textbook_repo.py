@@ -7,7 +7,28 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.models import TextbookPageMeta
 from app.repositories.orm import TextbookPageORM
+
+
+async def list_page_metadata(session: AsyncSession) -> list[TextbookPageMeta]:
+    result = await session.execute(
+        select(
+            TextbookPageORM.page_number,
+            TextbookPageORM.chapter,
+            TextbookPageORM.section,
+            TextbookPageORM.page_type,
+        ).order_by(TextbookPageORM.page_number)
+    )
+    return [
+        TextbookPageMeta(
+            page_number=row.page_number,
+            chapter=row.chapter,
+            section=row.section,
+            page_type=row.page_type,
+        )
+        for row in result
+    ]
 
 
 async def get_page_by_number(

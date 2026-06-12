@@ -22,6 +22,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as SAUUID
@@ -49,9 +50,16 @@ class UserORM(SQLAlchemyBaseUserTableUUID, Base):
 
 class ConversationORM(Base):
     __tablename__ = "conversations"
+    __table_args__ = (
+        UniqueConstraint("user_id", "subject", name="uq_conversations_user_subject"),
+    )
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # NULL for exam-session conversations; named subject for chat (e.g. "math_gs12").
+    # PostgreSQL UNIQUE allows multiple NULLs, so exam sessions don't conflict.
+    subject: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -154,6 +162,23 @@ class TextbookPageORM(Base):
     # page_type values: theory | exercise | self_evaluation | just_for_fun | preface | blank | mixed
     page_type: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ── Official Exams (Lebanese GS past exams — shared, not per-user) ────────────
+
+class OfficialExamORM(Base):
+    __tablename__ = "official_exams"
+    __table_args__ = (
+        UniqueConstraint("year", "session_label", name="uq_official_exams_year_session"),
+    )
+
+    id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    session_label: Mapped[str] = mapped_column(String(50), nullable=False)
+    exam_content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    answer_key: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    pdf_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

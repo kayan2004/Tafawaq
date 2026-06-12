@@ -86,7 +86,7 @@ export function Dashboard({ navigate }: PageProps) {
         <div className="card dash-panel">
           <div className="dash-panel-head">
             <h3 className="dash-panel-title">Recent attempts</h3>
-            <button className="link-btn" onClick={() => navigate("history")}>History →</button>
+            <button className="link-btn" onClick={() => navigate("exam")}>Exams →</button>
           </div>
           <div className="dash-recent">
             {HISTORY.slice(0, 3).map((h) => (
