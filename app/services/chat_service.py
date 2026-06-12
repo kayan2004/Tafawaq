@@ -12,11 +12,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import MessageRole
-from app.domain.exceptions import ExamNotFound
 from app.infra.llm.claude import stream_claude
 from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL
 from app.infra.vault import AppSecrets
-from app.repositories import message_repo, textbook_repo
+from app.repositories import exam_repo, message_repo, textbook_repo
 from app.services import guardrails_service, retrieval_service
 from prompts.chat import BLOCK_MESSAGE as _BLOCK_MESSAGE
 from prompts.chat import WARNING_SUFFIX as _WARNING_SUFFIX
@@ -33,14 +32,74 @@ def _build_chat_system_prompt(counter: int) -> str:
     return _build_chat_system_prompt_fn(_curriculum, counter)
 
 
+_SUBJECT = "math_gs12"
+
+
+async def _build_exam_context(
+    db_session: AsyncSession,
+    session_id: UUID,
+    user_id: UUID,
+) -> str | None:
+    exam = await exam_repo.get_session(db_session, session_id)
+    if exam is None or exam.user_id != user_id:
+        return None
+
+    lines: list[str] = [
+        "## Attached Exam\n",
+        f"Type: {exam.session_type.value}  |  Status: {exam.status.value}  |  Date: {exam.created_at.strftime('%Y-%m-%d')}\n",
+    ]
+
+    for ex in exam.exam_content.get("exercises", []):
+        lines.append(f"\n### Exercise {ex['id']} — {ex.get('topic', '')} ({ex.get('total_marks', '?')} marks)")
+        lines.append(ex.get("content", ""))
+        for p in ex.get("parts", []):
+            lines.append(f"  Part {p['part']} ({p.get('marks', '?')} marks): {p.get('content', '')}")
+
+    result = await exam_repo.get_result(db_session, session_id)
+    if result is not None:
+        lines.append("\n### Student Answers")
+        for ex_ans in result.student_answers.get("answers", []):
+            lines.append(f"\nExercise {ex_ans.get('exercise_id')}:")
+            for p in ex_ans.get("parts", []):
+                lines.append(f"  Part {p['part']}: {p.get('answer', '(blank)')}")
+
+        ev = result.evaluator_1
+        avg = round((result.total_score_1 + result.total_score_2) / 2, 1)
+        lines.append(f"\n### Grading Results (avg {avg}/{ev.get('grand_max', 20)})")
+        for ex_res in ev.get("exercises", []):
+            lines.append(
+                f"\nExercise {ex_res.get('exercise_id')}: "
+                f"{ex_res.get('exercise_total', 0):.1f}/{ex_res.get('exercise_max', 0):.0f}"
+            )
+            for part_id, pd in ex_res.get("parts", {}).items():
+                lines.append(
+                    f"  Part {part_id}: {pd.get('score', 0)}/{pd.get('max_score', 0)} — {pd.get('feedback', '')}"
+                )
+                if pd.get("correction"):
+                    lines.append(f"    Correction: {pd['correction']}")
+
+    return "\n".join(lines)
+
+
+async def clear_chat(
+    user_id: UUID,
+    db_session: AsyncSession,
+    redis: Redis,
+) -> None:
+    conv_id = await message_repo.clear_conversation(db_session, user_id, _SUBJECT)
+    await db_session.commit()
+    if conv_id is not None:
+        await guardrails_service.reset_counter(redis, str(conv_id))
+
+
 async def handle_turn(
-    conversation_id: UUID | None,
     message: str,
     user_id: UUID,
     secrets: AppSecrets,
     db_session: AsyncSession,
     redis: Redis,
     is_admin: bool = False,
+    attached_session_id: UUID | None = None,
 ) -> AsyncGenerator[str, None]:
     # Open our own asyncpg connection for the generator's lifetime.
     # Cannot use Depends(get_db_conn) here: FastAPI closes dependencies when the
@@ -49,14 +108,8 @@ async def handle_turn(
     conn = await asyncpg.connect(_db_url)
     await pgvector.asyncpg.register_vector(conn)
     try:
-        if conversation_id is None:
-            conv = await message_repo.create_conversation(db_session, user_id)
-            await db_session.commit()
-            yield f"data: {json.dumps({'event': 'conversation_id', 'conversation_id': str(conv.id)})}\n\n"
-        else:
-            conv = await message_repo.get_conversation(db_session, conversation_id)
-            if conv is None or conv.user_id != user_id:
-                raise ExamNotFound(f"Conversation {conversation_id} not found.")
+        conv = await message_repo.get_or_create_conversation(db_session, user_id, _SUBJECT)
+        await db_session.commit()
 
         await message_repo.add_message(db_session, conv.id, MessageRole.user, message)
         await db_session.commit()
@@ -84,6 +137,10 @@ async def handle_turn(
         ]
 
         system = _build_chat_system_prompt(counter)
+        if attached_session_id is not None:
+            exam_ctx = await _build_exam_context(db_session, attached_session_id, user_id)
+            if exam_ctx:
+                system += f"\n\n{exam_ctx}"
 
         full_response = ""
         for _ in range(4):  # cap prevents runaway tool-call cycles

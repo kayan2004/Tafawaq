@@ -13,14 +13,15 @@ from app.api.dependencies import get_async_session, get_redis, get_secrets
 from app.infra.auth import current_active_user
 from app.infra.vault import AppSecrets
 from app.repositories.orm import UserORM
+from app.repositories import message_repo
 from app.services import chat_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
-    conversation_id: UUID | None = None
     message: str
+    attached_session_id: str | None = None
 
 
 @router.post("")
@@ -31,16 +32,48 @@ async def chat(
     redis: Redis = Depends(get_redis),
     secrets: AppSecrets = Depends(get_secrets),
 ):
+    attached: UUID | None = None
+    if body.attached_session_id:
+        try:
+            attached = UUID(body.attached_session_id)
+        except ValueError:
+            pass
+
     return StreamingResponse(
         chat_service.handle_turn(
-            conversation_id=body.conversation_id,
             message=body.message,
             user_id=user.id,
             is_admin=user.is_superuser,
             secrets=secrets,
             db_session=db_session,
             redis=redis,
+            attached_session_id=attached,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/history")
+async def get_history(
+    user: UserORM = Depends(current_active_user),
+    db_session: AsyncSession = Depends(get_async_session),
+):
+    conv = await message_repo.get_or_create_conversation(db_session, user.id, "math_gs12")
+    await db_session.commit()
+    messages = await message_repo.get_messages(db_session, conv.id, limit=100)
+    return [{"role": msg.role.value, "content": msg.content} for msg in messages]
+
+
+@router.post("/clear", status_code=204)
+async def clear_chat(
+    user: UserORM = Depends(current_active_user),
+    db_session: AsyncSession = Depends(get_async_session),
+    redis: Redis = Depends(get_redis),
+    secrets: AppSecrets = Depends(get_secrets),
+):
+    await chat_service.clear_chat(
+        user_id=user.id,
+        db_session=db_session,
+        redis=redis,
     )
