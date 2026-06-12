@@ -29,6 +29,18 @@ class TextbookPageNotFound(LebaneseCoachError):
     """Textbook page does not exist in the textbook_pages table."""
 
 
+class TextbookPdfMissing(LebaneseCoachError):
+    """Textbook PDF not found in object storage."""
+
+
+class OfficialExamNotFound(LebaneseCoachError):
+    """Official exam record does not exist."""
+
+
+class OfficialExamPdfMissing(LebaneseCoachError):
+    """Official exam exists but has no PDF stored in MinIO."""
+
+
 # ── 409 Conflict ─────────────────────────────────────────────────────────────
 
 class ActiveSessionExists(LebaneseCoachError):
@@ -56,6 +68,10 @@ class SessionExpired(LebaneseCoachError):
 
 class InvalidAnswerSubmission(LebaneseCoachError):
     """Submitted answers reference exercise IDs not present in the exam."""
+
+
+class ExtractionFailed(LebaneseCoachError):
+    """Claude Vision could not extract structured answers from the uploaded file."""
 
 
 # ── 502 Bad Gateway ──────────────────────────────────────────────────────────

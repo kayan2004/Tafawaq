@@ -13,10 +13,14 @@ from app.domain.exceptions import (
     EmbeddingServiceUnavailable,
     EvaluatorResponseError,
     ExamNotFound,
+    ExtractionFailed,
     InvalidAnswerSubmission,
     LebaneseCoachError,
+    OfficialExamNotFound,
+    OfficialExamPdfMissing,
     SessionExpired,
     TextbookPageNotFound,
+    TextbookPdfMissing,
     TopicNotFound,
 )
 from app.domain.models import ErrorResponse
@@ -37,6 +41,9 @@ def _error(request: Request, status: int, message: str) -> JSONResponse:
 @app.exception_handler(AnswerKeyNotFound)
 @app.exception_handler(TopicNotFound)
 @app.exception_handler(TextbookPageNotFound)
+@app.exception_handler(TextbookPdfMissing)
+@app.exception_handler(OfficialExamNotFound)
+@app.exception_handler(OfficialExamPdfMissing)
 async def not_found_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
     return _error(request, 404, str(exc) or "Resource not found.")
 
@@ -62,6 +69,11 @@ async def session_expired_handler(request: Request, exc: SessionExpired) -> JSON
 @app.exception_handler(InvalidAnswerSubmission)
 async def invalid_submission_handler(request: Request, exc: InvalidAnswerSubmission) -> JSONResponse:
     return _error(request, 422, str(exc) or "Invalid answer submission.")
+
+
+@app.exception_handler(ExtractionFailed)
+async def extraction_failed_handler(request: Request, exc: ExtractionFailed) -> JSONResponse:
+    return _error(request, 422, str(exc) or "Could not extract answers from the provided file.")
 
 
 @app.exception_handler(EvaluatorResponseError)

@@ -2,7 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Icons } from "../lib/icons";
 import { RichMath } from "../lib/math";
-import { clearToken, getToken, startChatStream } from "../lib/api";
+import {
+  clearChatHistory,
+  clearToken,
+  getChatHistory,
+  getExamHistory,
+  getToken,
+  startChatStream,
+} from "../lib/api";
+import type { ExamSessionSummary } from "../lib/api";
 
 interface Msg {
   id: number;
@@ -17,20 +25,69 @@ interface Msg {
 interface Props {
   onLogout: () => void;
   isAdmin?: boolean;
+  onCommand?: (cmd: string) => void;
 }
 
 let _seq = 0;
 const nextId = () => ++_seq;
 
-export function Chat({ onLogout, isAdmin = false }: Props) {
+export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Attached exam state
+  const [attachedSession, setAttachedSession] = useState<ExamSessionSummary | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSessions, setPickerSessions] = useState<ExamSessionSummary[]>([]);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const pickerSearchRef = useRef<HTMLInputElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Load persisted history on first mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    getChatHistory(token).then((history) => {
+      if (history.length === 0) return;
+      setMessages(
+        history.map((m) => ({ id: nextId(), role: m.role, content: m.content, streaming: false }))
+      );
+    });
+  }, []);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [pickerOpen]);
+
+  // Focus search when picker opens
+  useEffect(() => {
+    if (pickerOpen) setTimeout(() => pickerSearchRef.current?.focus(), 0);
+  }, [pickerOpen]);
+
+  const openPicker = async () => {
+    const token = getToken();
+    if (!token) return;
+    setPickerOpen(true);
+    setPickerSearch("");
+    setPickerLoading(true);
+    const sessions = await getExamHistory(token);
+    setPickerSessions(sessions);
+    setPickerLoading(false);
+  };
 
   // Auto-scroll to bottom whenever messages update
   useEffect(() => {
@@ -53,6 +110,30 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
     if (!token) { onLogout(); return; }
 
     setInput("");
+
+    // Slash-command dispatch — never reaches the chat API
+    if (text.startsWith("/")) {
+      const cmd = text.slice(1).split(/\s+/)[0].toLowerCase();
+      if (cmd === "generate") {
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "user", content: text, streaming: false },
+          { id: nextId(), role: "assistant", content: "Sure! I've queued a new mock exam for you — head to the Exams tab whenever you're ready.", streaming: false },
+        ]);
+        onCommand?.("generate");
+      } else if (cmd === "exam") {
+        setInput("");
+        openPicker();
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "user", content: text, streaming: false },
+          { id: nextId(), role: "assistant", content: `Unknown command: \`/${cmd}\``, streaming: false },
+        ]);
+      }
+      return;
+    }
+
     setIsStreaming(true);
 
     const initialAsstId = nextId();
@@ -101,7 +182,7 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
     };
 
     try {
-      const reader = await startChatStream(text, conversationId, token, abort.signal);
+      const reader = await startChatStream(text, token, abort.signal, attachedSession?.session_id);
       const decoder = new TextDecoder();
       let buffer = "";
       let done = false;
@@ -126,9 +207,7 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
           try { payload = JSON.parse(raw); } catch { continue; }
 
           const event = payload.event as string;
-          if (event === "conversation_id") {
-            setConversationId(payload.conversation_id as string);
-          } else if (event === "token") {
+          if (event === "token") {
             appendToken(payload.text as string);
           } else if (event === "tool_use" && isAdmin) {
             toolCalled = true;
@@ -188,8 +267,9 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
   const newChat = () => {
     abortRef.current?.abort();
     setMessages([]);
-    setConversationId(null);
     setIsStreaming(false);
+    const token = getToken();
+    if (token) clearChatHistory(token).catch(() => {});
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
@@ -200,6 +280,22 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
   };
 
   const SendIcon = Icons.send;
+
+  const filteredSessions = pickerSessions.filter((s) => {
+    if (!pickerSearch) return true;
+    const q = pickerSearch.toLowerCase();
+    return (
+      s.session_type.toLowerCase().includes(q) ||
+      s.status.toLowerCase().includes(q) ||
+      new Date(s.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toLowerCase().includes(q)
+    );
+  });
+
+  function sessionLabel(s: ExamSessionSummary): string {
+    const type = s.session_type === "mock_generated" ? "Mock" : s.session_type === "official" ? "Official" : s.session_type;
+    const date = new Date(s.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    return `${type} · ${date}`;
+  }
 
   return (
     <div className="chat-wrap">
@@ -303,6 +399,55 @@ export function Chat({ onLogout, isAdmin = false }: Props) {
 
         <div ref={bottomRef} />
       </div>
+
+      {/* ── Exam picker ── */}
+      {pickerOpen && (
+        <div className="chat-exam-picker" ref={pickerRef}>
+          <input
+            ref={pickerSearchRef}
+            className="chat-exam-picker-search"
+            placeholder="Search by type, date, or status…"
+            value={pickerSearch}
+            onChange={(e) => setPickerSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setPickerOpen(false)}
+          />
+          <div className="chat-exam-picker-list">
+            {pickerLoading && <div className="chat-exam-picker-empty">Loading…</div>}
+            {!pickerLoading && filteredSessions.length === 0 && (
+              <div className="chat-exam-picker-empty">No exams found</div>
+            )}
+            {!pickerLoading && filteredSessions.map((s) => (
+              <button
+                key={s.session_id}
+                className={`chat-exam-picker-item${attachedSession?.session_id === s.session_id ? " selected" : ""}`}
+                onClick={() => { setAttachedSession(s); setPickerOpen(false); }}
+              >
+                <span className={`chat-exam-type-badge ${s.session_type}`}>
+                  {s.session_type === "mock_generated" ? "Mock" : "Official"}
+                </span>
+                <span className="chat-exam-picker-date">
+                  {new Date(s.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+                <span className={`chat-exam-status ${s.status}`}>{s.status}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Attached exam chip ── */}
+      {attachedSession && !pickerOpen && (
+        <div className="chat-exam-chip-bar">
+          <div className="chat-exam-chip">
+            <span className="chat-exam-chip-label">📎 {sessionLabel(attachedSession)}</span>
+            <button
+              className="chat-exam-chip-dismiss"
+              onClick={() => setAttachedSession(null)}
+              aria-label="Remove attached exam"
+            >×</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Input bar ── */}
       <div className="chat-input-bar">

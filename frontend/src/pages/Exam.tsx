@@ -1,5 +1,25 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { getToken, getActiveSession, generateExamStream, submitExamAnswers, type ExamExercise } from "../lib/api";
+import {
+  getToken,
+  extractAnswers,
+  getExamHistory,
+  getExamSession,
+  getExamResults,
+  submitExamAnswers,
+  getOfficialExams,
+  takeOfficialExam,
+  getOfficialExamPdfUrl,
+  generateExamStream,
+} from "../lib/api";
+import type {
+  ExamSessionSummary,
+  ActiveExamSession,
+  ExamExercise,
+  OfficialExam,
+  GradingApiResult,
+  ExerciseResult,
+  PartResult,
+} from "../lib/api";
 import { RichMath } from "../lib/math";
 import { Pill } from "../lib/ui";
 
@@ -13,6 +33,233 @@ declare global {
 }
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── Score badge helper ────────────────────────────────────────────────────────
+
+function scoreColor(score: number, max: number): string {
+  if (max === 0) return "var(--ink-2)";
+  const ratio = score / max;
+  if (ratio >= 0.8) return "var(--green)";
+  if (ratio >= 0.5) return "var(--amber, #d97706)";
+  return "var(--red, #dc2626)";
+}
+
+// ── CorrectionView ─────────────────────────────────────────────────────────────
+
+function CorrectionView({ result, onBack }: { result: GradingApiResult; onBack: () => void }) {
+  const exercises = result.exam_content?.exercises ?? [];
+  const ev1 = result.evaluator_1;
+
+  const answerMap: Record<number, Record<string, string>> = {};
+  for (const ex of result.student_answers ?? []) {
+    answerMap[ex.exercise_id] = {};
+    for (const p of ex.parts) {
+      answerMap[ex.exercise_id][p.part] = p.answer;
+    }
+  }
+
+  const resultsMap: Record<number, ExerciseResult> = {};
+  for (const ex of ev1.exercises) {
+    resultsMap[ex.exercise_id] = ex;
+  }
+
+  return (
+    <div className="page">
+      <div className="exam-top">
+        <div>
+          <button className="btn btn-ghost" style={{ marginBottom: 10, fontSize: 13 }} onClick={onBack}>
+            ← Back to exams
+          </button>
+          <h1 className="page-title">Exam Results &amp; Corrections</h1>
+          <p className="page-sub">Graded by two independent AI evaluators.</p>
+        </div>
+        <div className="exam-top-right">
+          <div className="grading-scores" style={{ margin: 0 }}>
+            <div className="grading-score-block">
+              <div className="grading-score-label">Strict</div>
+              <div className="grading-score-value" style={{ color: scoreColor(result.evaluator_1.grand_total, result.evaluator_1.grand_max) }}>
+                {result.evaluator_1.grand_total.toFixed(1)}
+                <span className="grading-score-denom"> / {result.evaluator_1.grand_max.toFixed(0)}</span>
+              </div>
+            </div>
+            <div className="grading-score-divider" />
+            <div className="grading-score-block">
+              <div className="grading-score-label">Average</div>
+              <div className="grading-score-value" style={{ color: scoreColor(result.average_total, result.evaluator_1.grand_max) }}>
+                {result.average_total.toFixed(1)}
+                <span className="grading-score-denom"> / {result.evaluator_1.grand_max.toFixed(0)}</span>
+              </div>
+            </div>
+            <div className="grading-score-divider" />
+            <div className="grading-score-block">
+              <div className="grading-score-label">Lenient</div>
+              <div className="grading-score-value" style={{ color: scoreColor(result.evaluator_2.grand_total, result.evaluator_2.grand_max) }}>
+                {result.evaluator_2.grand_total.toFixed(1)}
+                <span className="grading-score-denom"> / {result.evaluator_2.grand_max.toFixed(0)}</span>
+              </div>
+            </div>
+          </div>
+          {result.discrepancy_flagged && (
+            <p className="grading-discrepancy-note" style={{ marginTop: 8, maxWidth: 260 }}>
+              Evaluators disagreed by 2+ pts — professor review may be warranted.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {exercises.map((ex, idx) => {
+        const exResult = resultsMap[ex.id];
+        return (
+          <div key={ex.id} className="card exam-body" style={{ marginBottom: 20 }}>
+            <div className="exam-exercise-header" style={{ marginBottom: 12 }}>
+              <span className="exam-ex-num">Exercise {ROMAN[idx] ?? ex.id}</span>
+              <span className="exam-ex-topic">{ex.topic}</span>
+              {exResult && (
+                <span className="exam-ex-marks" style={{ color: scoreColor(exResult.exercise_total, exResult.exercise_max), fontWeight: 700 }}>
+                  {exResult.exercise_total.toFixed(1)} / {exResult.exercise_max.toFixed(0)} pts
+                </span>
+              )}
+            </div>
+            {ex.content && (
+              <div className="exam-exercise-stem" style={{ marginBottom: 16 }}>
+                <RichMath>{ex.content}</RichMath>
+              </div>
+            )}
+            <div className="exam-parts">
+              {ex.parts.map((p) => {
+                const partResult: PartResult | undefined = exResult?.parts[p.part];
+                const studentAnswer = answerMap[ex.id]?.[p.part] ?? "";
+                const isFullPart = p.part === "full";
+                return (
+                  <div key={p.part} className="correction-part">
+                    {!isFullPart && (
+                      <div className="exam-part-head" style={{ marginBottom: 8 }}>
+                        <span className="exam-part-label">{p.part})</span>
+                        <span className="exam-part-marks">{p.marks} pt{p.marks !== 1 ? "s" : ""}</span>
+                        {partResult && (
+                          <span
+                            className="correction-part-score"
+                            style={{ color: scoreColor(partResult.score, partResult.max_score) }}
+                          >
+                            {partResult.score.toFixed(1)} / {partResult.max_score.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="exam-part-content" style={{ marginBottom: 10 }}>
+                      <RichMath>{p.content}</RichMath>
+                    </div>
+
+                    <div className="correction-student-answer">
+                      <div className="correction-label">Your answer</div>
+                      <div className="correction-answer-text">
+                        {studentAnswer.trim() ? (
+                          <RichMath>{studentAnswer}</RichMath>
+                        ) : (
+                          <span style={{ color: "var(--ink-3)", fontStyle: "italic" }}>No answer submitted</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {partResult && (
+                      <>
+                        {partResult.feedback && (
+                          <div className="correction-feedback">
+                            <span className="correction-label">Evaluator note</span>
+                            <span className="correction-feedback-text">{partResult.feedback}</span>
+                          </div>
+                        )}
+                        {partResult.correction && (
+                          <div className="correction-solution">
+                            <div className="correction-label correction-label-solution">Correction</div>
+                            <div className="correction-solution-text">
+                              <RichMath>{partResult.correction}</RichMath>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <button className="btn btn-ghost" style={{ marginBottom: 32 }} onClick={onBack}>
+        ← Back to exams
+      </button>
+    </div>
+  );
+}
+
+// ── Official exam detail view (embeds the PDF) ───────────────────────────────
+
+function OfficialExamDetailView({ exam, starting, onStart, onBack, token }: {
+  exam: OfficialExam; starting: boolean;
+  onStart: () => void; onBack: () => void; token: string;
+}) {
+  const totalMarks = exam.exam_content?.exercises?.reduce((s, ex) => s + ex.total_marks, 0) ?? 0;
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState(false);
+  const pdfUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    getOfficialExamPdfUrl(token, exam.id)
+      .then((url) => { pdfUrlRef.current = url; setPdfUrl(url); })
+      .catch(() => setPdfError(true));
+    return () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); };
+  }, [exam.id, token]);
+
+  return (
+    <div className="page">
+      <div className="exam-top">
+        <div>
+          <button className="btn btn-ghost" style={{ marginBottom: 10, fontSize: 13 }} onClick={onBack}>
+            ← Back to exams
+          </button>
+          <h1 className="page-title">Mathematics — {exam.year} {exam.session_label}</h1>
+          <p className="page-sub">Lebanese GS Official Baccalaureate Exam</p>
+        </div>
+        <div className="exam-top-right">
+          <div className="exam-meta">
+            <Pill kind="blue">{totalMarks} pts</Pill>
+            <Pill kind="green">Official</Pill>
+          </div>
+          <button className="btn btn-blue" onClick={onStart} disabled={starting}>
+            {starting ? "Starting…" : "Start Exam"}
+          </button>
+        </div>
+      </div>
+      <div className="card exam-body" style={{ padding: 0, overflow: "hidden" }}>
+        {pdfUrl ? (
+          <iframe
+            src={pdfUrl}
+            style={{ width: "100%", height: "75vh", border: "none", display: "block" }}
+            title={`${exam.year} ${exam.session_label} official exam`}
+          />
+        ) : pdfError ? (
+          <div style={{ padding: "40px 32px", color: "var(--ink-2)", fontSize: 14 }}>
+            PDF could not be loaded. Click <strong>Start Exam</strong> to begin.
+          </div>
+        ) : (
+          <div className="sk" style={{ width: "100%", height: "75vh", borderRadius: 0 }} />
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── Shared exercise list renderer ─────────────────────────────────────────────
 
@@ -48,148 +295,133 @@ function ExerciseList({ exercises }: { exercises: ExamExercise[] }) {
 
 type Phase =
   | { kind: "loading" }
-  | { kind: "setup" }
-  | { kind: "generating" }
-  | { kind: "exam"; exercises: ExamExercise[]; sessionId: string }
-  | { kind: "taking"; exercises: ExamExercise[]; sessionId: string }
-  | { kind: "error"; message: string };
-
-interface SubjectOption { id: string; label: string; desc: string; enabled: boolean; }
-
-const SUBJECTS: SubjectOption[] = [
-  { id: "math",      label: "Mathematics", desc: "Algebra, calculus, probability & geometry", enabled: true  },
-  { id: "physics",   label: "Physics",     desc: "Coming soon",                                enabled: false },
-  { id: "chemistry", label: "Chemistry",   desc: "Coming soon",                                enabled: false },
-  { id: "biology",   label: "Biology",     desc: "Coming soon",                                enabled: false },
-];
+  | { kind: "browse"; sessions: ExamSessionSummary[]; officialExams: OfficialExam[] }
+  | { kind: "loading-detail" }
+  | { kind: "detail"; session: ActiveExamSession; summary: ExamSessionSummary }
+  | { kind: "results"; result: GradingApiResult; summary: ExamSessionSummary }
+  | { kind: "official-detail"; exam: OfficialExam; starting: boolean }
+  | { kind: "taking"; exercises: ExamExercise[]; sessionId: string; officialExamId?: string };
 
 // ── Main Exam component ───────────────────────────────────────────────────────
 
-export function Exam() {
+interface ExamProps {
+  triggerGenerate?: boolean;
+  onGenerateConsumed?: () => void;
+}
+
+export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
-  const [subject, setSubject] = useState("math");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const token = getToken()!;
 
-  useEffect(() => {
-    getActiveSession(token).then((session) => {
-      const exercises = session?.exam_content?.exercises ?? [];
-      if (session && exercises.length > 0) {
-        setPhase({ kind: "exam", exercises, sessionId: session.session_id });
-      } else {
-        setPhase({ kind: "setup" });
-      }
-    });
-  }, [token]);
+  const loadBrowse = () => {
+    Promise.all([getExamHistory(token), getOfficialExams(token)]).then(
+      ([sessions, officialExams]) => setPhase({ kind: "browse", sessions, officialExams })
+    ).catch(() => setPhase({ kind: "browse", sessions: [], officialExams: [] }));
+  };
 
-  const handleGenerate = useCallback(async () => {
-    setPhase({ kind: "generating" });
-    abortRef.current = new AbortController();
-    let capturedSessionId = "";
-    let done = false;
-    let examReceived = false;
+  useEffect(() => { loadBrowse(); }, [token]);
+
+  const startGenerate = async () => {
+    setGenerating(true);
+    setGenError(null);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    let sessionId: string | null = null;
     try {
-      const reader = await generateExamStream(token, abortRef.current.signal);
+      const reader = await generateExamStream(token, ctrl.signal);
       const decoder = new TextDecoder();
-      let buf = "";
-      while (!done) {
-        const { done: rdone, value } = await reader.read();
-        if (rdone) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
+      let buffer = "";
+      outer: while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
-          if (raw === "[DONE]") { done = true; break; }
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break outer;
           try {
-            const payload = JSON.parse(raw) as Record<string, unknown>;
-            if (payload.event === "session_created") {
-              capturedSessionId = (payload.session_id as string) ?? "";
-            } else if (payload.event === "exam_complete") {
-              const content = payload.exam_content as { exercises?: ExamExercise[] } | undefined;
-              const exercises = content?.exercises ?? [];
-              examReceived = true;
-              setPhase({ kind: "exam", exercises, sessionId: capturedSessionId });
-            } else if (payload.event === "error") {
-              setPhase({ kind: "error", message: (payload.message as string) || "Generation failed. Please try again." });
-              done = true;
+            const ev = JSON.parse(payload);
+            if (ev.event === "session_created") sessionId = ev.session_id;
+            if (ev.event === "exam_complete" && sessionId) {
+              const exercises: ExamExercise[] = ev.exam_content?.exercises ?? [];
+              setPhase({ kind: "taking", exercises, sessionId });
+              break outer;
             }
-          } catch { /* ignore */ }
+            if (ev.event === "error") {
+              setGenError(ev.message ?? "Generation failed. Please try again.");
+              break outer;
+            }
+          } catch { /* malformed SSE line */ }
         }
       }
-      if (!examReceived) setPhase({ kind: "error", message: "Generation completed but no exam was received. Please try again." });
-    } catch (err: unknown) {
-      if ((err as Error).name === "AbortError") return;
-      setPhase({ kind: "error", message: err instanceof Error ? err.message : "Unexpected error. Please try again." });
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        setGenError(err.message);
+      }
+    } finally {
+      setGenerating(false);
+      abortRef.current = null;
     }
-  }, [token]);
+  };
 
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  // Fire startGenerate once when triggered via /generate command from Chat.
+  // genFiredRef prevents double-invocation under React StrictMode.
+  const genFiredRef = useRef(false);
+  useEffect(() => {
+    if (!triggerGenerate || genFiredRef.current) return;
+    genFiredRef.current = true;
+    onGenerateConsumed?.();
+    startGenerate();
+  }, [triggerGenerate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (phase.kind === "loading") {
+  const openDetail = async (summary: ExamSessionSummary) => {
+    setPhase({ kind: "loading-detail" });
+    if (summary.status === "graded") {
+      const result = await getExamResults(token, summary.session_id);
+      if (!result) { loadBrowse(); return; }
+      setPhase({ kind: "results", result, summary });
+      return;
+    }
+    const session = await getExamSession(token, summary.session_id);
+    if (!session) { loadBrowse(); return; }
+    setPhase({ kind: "detail", session, summary });
+  };
+
+  const openOfficialDetail = (exam: OfficialExam) => {
+    setPhase({ kind: "official-detail", exam, starting: false });
+  };
+
+  const startOfficialExam = async (exam: OfficialExam) => {
+    setPhase({ kind: "official-detail", exam, starting: true });
+    try {
+      const { session_id, exam_content } = await takeOfficialExam(token, exam.id);
+      const exercises = (exam_content as { exercises?: ExamExercise[] }).exercises ?? [];
+      setPhase({ kind: "taking", exercises, sessionId: session_id, officialExamId: exam.id });
+    } catch {
+      setPhase({ kind: "official-detail", exam, starting: false });
+    }
+  };
+
+  const backToBrowse = () => {
+    setPhase({ kind: "loading" });
+    loadBrowse();
+  };
+
+  if (phase.kind === "loading" || phase.kind === "loading-detail") {
     return (
       <div className="page">
         <div className="page-head">
-          <div className="sk" style={{ height: 32, width: 200, marginBottom: 10 }} />
-          <div className="sk" style={{ height: 16, width: 320 }} />
+          <div className="sk" style={{ height: 32, width: 160, marginBottom: 10 }} />
+          <div className="sk" style={{ height: 16, width: 300 }} />
         </div>
-        {[0, 1, 2].map((i) => <div key={i} className="card sk" style={{ height: 120, marginBottom: 16 }} />)}
-      </div>
-    );
-  }
-
-  if (phase.kind === "setup") {
-    return (
-      <div className="page">
-        <div className="page-head">
-          <h1 className="page-title">Practice Exam</h1>
-          <p className="page-sub">Generate a full 20-point mock exam in timed conditions. 3 hours.</p>
-        </div>
-        <div className="exam-setup">
-          <p className="exam-section-label">Select a subject</p>
-          <div className="subject-grid">
-            {SUBJECTS.map((s) => (
-              <button key={s.id}
-                className={["subject-card", s.id === subject && s.enabled ? "subject-selected" : "", !s.enabled ? "subject-disabled" : ""].filter(Boolean).join(" ")}
-                onClick={() => { if (s.enabled) setSubject(s.id); }} disabled={!s.enabled}>
-                <span className="subject-name">{s.label}</span>
-                <span className="subject-desc">{s.desc}</span>
-              </button>
-            ))}
-          </div>
-          <div className="exam-meta" style={{ marginBottom: 28 }}>
-            <Pill kind="blue">20 points</Pill>
-            <Pill kind="grey">3 hours</Pill>
-            <Pill kind="green">5 exercises</Pill>
-          </div>
-          <button className="btn btn-blue" style={{ width: "100%" }} onClick={handleGenerate}>Generate Exam</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase.kind === "generating") {
-    return (
-      <div className="page">
-        <div className="exam-generating">
-          <div className="exam-spinner" />
-          <h2 className="exam-gen-title">Generating your exam…</h2>
-          <p className="exam-gen-sub">Crafting 5 exercises across your curriculum. This takes about 30 seconds.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase.kind === "error") {
-    return (
-      <div className="page">
-        <div className="page-head"><h1 className="page-title">Practice Exam</h1></div>
-        <div className="card" style={{ padding: "28px 32px", maxWidth: 520 }}>
-          <p style={{ margin: "0 0 12px", fontWeight: 700, color: "var(--tier-high)" }}>Generation failed</p>
-          <p style={{ margin: "0 0 24px", fontSize: 14, color: "var(--ink-2)" }}>{phase.message}</p>
-          <button className="btn btn-ghost" onClick={() => setPhase({ kind: "setup" })}>Try again</button>
-        </div>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card sk" style={{ height: 80, marginBottom: 12 }} />
+        ))}
       </div>
     );
   }
@@ -200,38 +432,160 @@ export function Exam() {
         sessionId={phase.sessionId}
         exercises={phase.exercises}
         token={token}
-        onBack={() => setPhase({ kind: "exam", exercises: phase.exercises, sessionId: phase.sessionId })}
+        onBack={backToBrowse}
+        officialExamId={phase.officialExamId}
       />
     );
   }
 
-  // exam preview phase
-  const totalMarks = phase.exercises.reduce((s, ex) => s + ex.total_marks, 0);
-  return (
-    <div className="page">
-      <div className="exam-top">
-        <div>
-          <h1 className="page-title">Mathematics — Mock Exam</h1>
-          <p className="page-sub">Review the exam, then start when ready.</p>
-        </div>
-        <div className="exam-top-right">
-          <div className="exam-meta">
-            <Pill kind="blue">{totalMarks} pts</Pill>
+  if (phase.kind === "results") {
+    return <CorrectionView result={phase.result} onBack={backToBrowse} />;
+  }
+
+  if (phase.kind === "detail") {
+    const { session, summary } = phase;
+    const exercises = session.exam_content?.exercises ?? [];
+    const totalMarks = exercises.reduce((s, ex) => s + ex.total_marks, 0);
+    const canTake = summary.status === "in_progress";
+    return (
+      <div className="page">
+        <div className="exam-top">
+          <div>
+            <button className="btn btn-ghost" style={{ marginBottom: 10, fontSize: 13 }} onClick={backToBrowse}>
+              ← Back to exams
+            </button>
+            <h1 className="page-title">Mathematics — Mock Exam</h1>
+            <p className="page-sub">{formatDate(summary.created_at)} at {formatTime(summary.created_at)}</p>
           </div>
-          <button className="btn btn-blue"
-            onClick={() => setPhase({ kind: "taking", exercises: phase.exercises, sessionId: phase.sessionId })}>
-            Start Exam
-          </button>
-          <button className="btn btn-ghost exam-export-btn" onClick={() => window.print()}>Export PDF</button>
+          <div className="exam-top-right">
+            <div className="exam-meta">
+              <Pill kind="blue">{totalMarks} pts</Pill>
+              {summary.status === "submitted" && <Pill kind="blue">Submitted</Pill>}
+              {summary.status === "in_progress" && <Pill kind="grey">In Progress</Pill>}
+            </div>
+            {canTake && (
+              <button
+                className="btn btn-blue"
+                onClick={() => setPhase({ kind: "taking", exercises, sessionId: session.session_id })}
+              >
+                Start Exam
+              </button>
+            )}
+            <button className="btn btn-ghost exam-export-btn" onClick={() => window.print()}>Export PDF</button>
+          </div>
+        </div>
+        <div className="card exam-body">
+          <div className="exam-print-header">
+            <p className="exam-print-title">Lebanese Official Baccalaureate — GS Mathematics</p>
+            <p className="exam-print-meta">Mock Exam &nbsp;·&nbsp; {totalMarks} points &nbsp;·&nbsp; Duration: 3 hours</p>
+            <p className="exam-print-instructions">Non-programmable calculator permitted. You may answer exercises in any order.</p>
+          </div>
+          <ExerciseList exercises={exercises} />
         </div>
       </div>
-      <div className="card exam-body">
-        <div className="exam-print-header">
-          <p className="exam-print-title">Lebanese Official Baccalaureate — GS Mathematics</p>
-          <p className="exam-print-meta">Mock Exam &nbsp;·&nbsp; {totalMarks} points &nbsp;·&nbsp; Duration: 3 hours</p>
-          <p className="exam-print-instructions">Non-programmable calculator permitted. You may answer exercises in any order.</p>
+    );
+  }
+
+  if (phase.kind === "official-detail") {
+    return (
+      <OfficialExamDetailView
+        exam={phase.exam}
+        starting={phase.starting}
+        onStart={() => startOfficialExam(phase.exam)}
+        onBack={backToBrowse}
+        token={token}
+      />
+    );
+  }
+
+  // browse phase
+  const { sessions, officialExams } = phase;
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">Exams</h1>
+        <p className="page-sub">Official Lebanese GS Baccalaureate exams and AI-generated mock exams.</p>
+      </div>
+
+      <div className="exam-section">
+        <p className="exam-section-label">Official Exams</p>
+        {officialExams.length === 0 ? (
+          <div className="card" style={{ padding: "28px 32px", maxWidth: 560 }}>
+            <p style={{ margin: 0, color: "var(--ink-2)", fontSize: 14 }}>
+              Official Lebanese GS Mathematics Baccalaureate exams will appear here once uploaded.
+            </p>
+          </div>
+        ) : (
+          <div className="history-list">
+            {officialExams.map((e) => {
+              const totalMarks = e.exam_content?.exercises?.reduce((s, ex) => s + ex.total_marks, 0) ?? 20;
+              return (
+                <div key={e.id} className="card history-card">
+                  <div className="history-card-left">
+                    <span className="history-card-date">{e.year}</span>
+                    <span className="history-card-time">{e.session_label}</span>
+                  </div>
+                  <div className="history-card-meta">
+                    <Pill kind="blue">{totalMarks} pts</Pill>
+                    <Pill kind="green">Official</Pill>
+                  </div>
+                  <button className="btn btn-ghost history-card-btn" onClick={() => openOfficialDetail(e)}>
+                    View
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="exam-section" style={{ marginTop: 36 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+          <p className="exam-section-label" style={{ margin: 0 }}>Generated Mock Exams</p>
+          <button
+            className="btn btn-green"
+            style={{ fontSize: 13, padding: "6px 16px" }}
+            onClick={startGenerate}
+            disabled={generating}
+          >
+            {generating ? "Generating…" : "+ Generate New Exam"}
+          </button>
         </div>
-        <ExerciseList exercises={phase.exercises} />
+        {genError && (
+          <div style={{ color: "var(--red, #dc2626)", fontSize: 13, marginBottom: 12 }}>
+            {genError}
+          </div>
+        )}
+        {generating && (
+          <div className="card sk" style={{ height: 80, marginBottom: 12, maxWidth: 560 }} />
+        )}
+        {sessions.length === 0 && !generating ? (
+          <div className="card" style={{ padding: "28px 32px", maxWidth: 560 }}>
+            <p style={{ margin: 0, color: "var(--ink-2)", fontSize: 14 }}>
+              No mock exams generated yet. Click <strong>+ Generate New Exam</strong> to get started.
+            </p>
+          </div>
+        ) : (
+          <div className="history-list">
+            {sessions.map((s) => (
+              <div key={s.session_id} className="card history-card">
+                <div className="history-card-left">
+                  <span className="history-card-date">{formatDate(s.created_at)}</span>
+                  <span className="history-card-time">{formatTime(s.created_at)}</span>
+                </div>
+                <div className="history-card-meta">
+                  <Pill kind="blue">Mathematics</Pill>
+                  {s.status === "graded" && <Pill kind="green">Graded</Pill>}
+                  {s.status === "submitted" && <Pill kind="blue">Submitted</Pill>}
+                  {s.status === "in_progress" && <Pill kind="grey">In Progress</Pill>}
+                </div>
+                <button className="btn btn-ghost history-card-btn" onClick={() => openDetail(s)}>
+                  {s.status === "in_progress" ? "Continue" : s.status === "graded" ? "Results" : "View"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -288,20 +642,31 @@ function GraphPanel({ onUseGraph, onClose }: { onUseGraph: (text: string) => voi
 
 // ── ExamTakingView ────────────────────────────────────────────────────────────
 
-interface GradingResult { score1: number; score2: number; average: number; discrepancy: boolean; }
-
-function ExamTakingView({ sessionId, exercises, token, onBack }: {
-  sessionId: string; exercises: ExamExercise[]; token: string; onBack: () => void;
+function ExamTakingView({ sessionId, exercises, token, onBack, officialExamId }: {
+  sessionId: string; exercises: ExamExercise[]; token: string; onBack: () => void; officialExamId?: string;
 }) {
   const [activeEx, setActiveEx] = useState(0);
-  // answers keyed by "<exercise_id>__<part>" e.g. "1__1", "2__a"
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const pdfUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!officialExamId) return;
+    getOfficialExamPdfUrl(token, officialExamId)
+      .then((url) => { pdfUrlRef.current = url; setPdfUrl(url); })
+      .catch(() => {});
+    return () => { if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current); };
+  }, [officialExamId, token]);
+
   const [graphOpen, setGraphOpen] = useState(false);
   const [graphLoaded, setGraphLoaded] = useState(false);
   const [lastFocusedKey, setLastFocusedKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<GradingResult | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [result, setResult] = useState<GradingApiResult | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const answerKey = (exId: number, part: string) => `${exId}__${part}`;
 
@@ -343,12 +708,7 @@ function ExamTakingView({ sessionId, exercises, token, onBack }: {
         .filter((ex) => ex.parts.length > 0);
 
       const apiResult = await submitExamAnswers(token, sessionId, payload);
-      setResult({
-        score1: apiResult.evaluator_1.grand_total,
-        score2: apiResult.evaluator_2.grand_total,
-        average: apiResult.average_total,
-        discrepancy: apiResult.discrepancy_flagged,
-      });
+      setResult(apiResult);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Submission failed. Please try again.");
     } finally {
@@ -356,37 +716,30 @@ function ExamTakingView({ sessionId, exercises, token, onBack }: {
     }
   };
 
+  const handleExtract = async (file: File) => {
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const extracted = await extractAnswers(token, sessionId, file);
+      setAnswers((prev) => {
+        const next = { ...prev };
+        for (const ex of extracted.answers ?? []) {
+          for (const p of ex.parts ?? []) {
+            next[answerKey(ex.exercise_id, p.part)] = p.answer;
+          }
+        }
+        return next;
+      });
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Extraction failed. Please try again.");
+    } finally {
+      setExtracting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (result) {
-    return (
-      <div className="page">
-        <div className="page-head">
-          <h1 className="page-title">Exam Submitted</h1>
-          <p className="page-sub">Graded by two independent AI evaluators.</p>
-        </div>
-        <div className="card" style={{ padding: "32px 36px", maxWidth: 500 }}>
-          <div className="grading-scores">
-            <div className="grading-score-block">
-              <div className="grading-score-label">Strict evaluator</div>
-              <div className="grading-score-value">{result.score1.toFixed(1)}<span className="grading-score-denom"> / 20</span></div>
-            </div>
-            <div className="grading-score-divider" />
-            <div className="grading-score-block">
-              <div className="grading-score-label">Average</div>
-              <div className="grading-score-value">{result.average.toFixed(1)}<span className="grading-score-denom"> / 20</span></div>
-            </div>
-            <div className="grading-score-divider" />
-            <div className="grading-score-block">
-              <div className="grading-score-label">Lenient evaluator</div>
-              <div className="grading-score-value">{result.score2.toFixed(1)}<span className="grading-score-denom"> / 20</span></div>
-            </div>
-          </div>
-          {result.discrepancy && (
-            <p className="grading-discrepancy-note">Discrepancy detected between evaluators — a professor review may be warranted.</p>
-          )}
-          <button className="btn btn-ghost" style={{ marginTop: 24 }} onClick={onBack}>Back to exam</button>
-        </div>
-      </div>
-    );
+    return <CorrectionView result={result} onBack={onBack} />;
   }
 
   const ex = exercises[activeEx] ?? exercises[0];
@@ -416,33 +769,74 @@ function ExamTakingView({ sessionId, exercises, token, onBack }: {
             onClick={toggleGraph} title="Desmos graphing calculator">
             Desmos
           </button>
-          <button className="btn btn-blue" onClick={handleSubmit} disabled={submitting}>
+          {officialExamId && (
+            <button
+              className="btn btn-ghost"
+              disabled={!pdfUrl}
+              onClick={() => pdfUrl && window.open(pdfUrl, "_blank")}
+              title="Open official exam PDF in a new tab">
+              View PDF
+            </button>
+          )}
+          <button
+            className="btn btn-ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={extracting || submitting}
+            title="Upload a photo or scan of your handwritten answers">
+            {extracting ? "Extracting…" : "Upload answers"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleExtract(f); }}
+          />
+          <button className="btn btn-blue" onClick={handleSubmit} disabled={submitting || extracting}>
             {submitting ? "Grading…" : `Submit${answeredCount > 0 ? ` (${answeredCount}/${exercises.length})` : ""}`}
           </button>
         </div>
       </div>
 
       <div className="taking-body" ref={bodyRef}>
+        {extracting && (
+          <div className="extraction-banner extraction-banner-loading">
+            Extracting handwritten answers — this may take a few seconds…
+          </div>
+        )}
+        {extractError && !extracting && (
+          <div className="extraction-banner extraction-banner-error">
+            {extractError}
+            <button className="extraction-banner-dismiss" onClick={() => setExtractError(null)}>×</button>
+          </div>
+        )}
         {ex && (
           <>
             <div className="taking-ex-header">
               <span className="taking-ex-title">Exercise {ROMAN[activeEx] ?? ex.id} — {ex.topic}</span>
               <span className="taking-ex-marks">{ex.total_marks} pts</span>
             </div>
-            <div className="taking-section">
-              <div className="taking-question-content"><RichMath>{ex.content}</RichMath></div>
-            </div>
+            {ex.content && (
+              <div className="taking-section">
+                <div className="taking-question-content"><RichMath>{ex.content}</RichMath></div>
+              </div>
+            )}
             {ex.parts.map((part) => {
               const key = answerKey(ex.id, part.part);
+              const isFullPart = part.part === "full";
               return (
                 <div key={part.part} className="taking-section taking-section-q">
-                  <div className="taking-question-content">
-                    <span className="taking-part-num">{part.part})</span>
-                    <RichMath>{part.content}</RichMath>
-                    <span className="exam-part-marks" style={{ marginLeft: 6 }}>({part.marks} pt{part.marks !== 1 ? "s" : ""})</span>
-                  </div>
+                  {!isFullPart && (
+                    <div className="taking-question-content">
+                      <span className="taking-part-num">{part.part})</span>
+                      <RichMath>{part.content}</RichMath>
+                      <span className="exam-part-marks" style={{ marginLeft: 6 }}>({part.marks} pt{part.marks !== 1 ? "s" : ""})</span>
+                    </div>
+                  )}
                   <div className="taking-answer-wrap">
-                    <span className="taking-answer-label">Your answer for part {part.part}</span>
+                    <span className="taking-answer-label">
+                      {isFullPart ? `Your answer — Exercise ${ROMAN[activeEx] ?? ex.id} (${part.marks} pts)` : `Your answer for part ${part.part}`}
+                    </span>
                     <textarea className="taking-textarea" placeholder="Write your solution here…"
                       value={answers[key] ?? ""}
                       onChange={(e) => setAnswers((prev) => ({ ...prev, [key]: e.target.value }))}
