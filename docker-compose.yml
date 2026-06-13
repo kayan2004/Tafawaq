@@ -68,6 +68,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-placeholder-set-real-key}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-placeholder-set-real-key}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-prod}
+      ELEVEN_LABS_API_KEY: ${ELEVEN_LABS_API_KEY:-placeholder-set-real-key}
     volumes:
       - ./scripts:/scripts:ro
     entrypoint: ["sh", "/scripts/seed_vault.sh"]

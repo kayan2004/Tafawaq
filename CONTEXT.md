@@ -126,6 +126,9 @@ VAULT_ADDR=http://localhost:8200
 ANTHROPIC_API_KEY=<key>
 VOYAGE_API_KEY=<key>
 JWT_SECRET=<secret>
+ELEVENLABS_API_KEY=<key>
 ```
 
 Vault seed script at `scripts/seed_vault.sh` writes these into Vault under `secret/lebanese-math-coach`.
+`ELEVENLABS_API_KEY` is used by the `/tts` endpoint — the backend keeps the key server-side and proxies
+audio to the browser. Without it the TTS feature returns 503 but everything else continues to function.

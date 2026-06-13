@@ -17,6 +17,7 @@ vault kv put \
   db_password="devpassword" \
   minio_access_key="${MINIO_ACCESS_KEY:-minioadmin}" \
   minio_secret_key="${MINIO_SECRET_KEY:-minioadmin}" \
-  jwt_secret="${JWT_SECRET:-dev-jwt-secret-change-in-prod}"
+  jwt_secret="${JWT_SECRET:-dev-jwt-secret-change-in-prod}" \
+  elevenlabs_api_key="${ELEVEN_LABS_API_KEY:-${ELEVENLABS_API_KEY:-placeholder-set-real-key}}"
 
 echo "[vault-seed] Secrets written successfully."
