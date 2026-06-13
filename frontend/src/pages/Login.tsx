@@ -4,7 +4,7 @@ import { login, register, setToken } from "../lib/api";
 import { Icons } from "../lib/icons";
 
 interface Props {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, email: string) => void;
 }
 
 export function Login({ onLogin }: Props) {
@@ -25,7 +25,7 @@ export function Login({ onLogin }: Props) {
       }
       const token = await login(email, password);
       setToken(token);
-      onLogin(token);
+      onLogin(token, email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -41,12 +41,12 @@ export function Login({ onLogin }: Props) {
   const EyeIcon = showPassword ? Icons["eye-off"] : Icons.eye;
 
   return (
-    <div className="login-wrap">
+    <div className="login-wrap grid-bg">
       <div className="login-card card">
         <div className="login-brand">
-          <div className="brand-mark login-brand-mark">∑</div>
-          <h1 className="login-title">Math Coach</h1>
-          <p className="login-sub">Lebanese GS Bac — Grade 12</p>
+          <img src="/brand/tafawwaq-glyph.png" alt="Tafawwaq" style={{ height: 52, width: "auto", margin: "0 auto 14px", display: "block" }} />
+          <h1 className="login-title">{mode === "login" ? "Welcome back" : "Create account"}</h1>
+          <p className="login-sub">Lebanese GS Math · Baccalaureate Prep</p>
         </div>
 
         <form onSubmit={submit} className="login-form">

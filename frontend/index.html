@@ -2,21 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/brand/tafawwaq-glyph.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lebanese Math Coach</title>
+    <title>Tafawwaq — Lebanese Math Coach</title>
 
+    <!-- Theme bootstrap: apply saved preference before first paint to avoid FOUC -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Night Lab fonts: Space Grotesk (display), IBM Plex Sans (body), IBM Plex Mono (numbers/labels) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
 
-    <!-- Desmos Graphing Calculator API — replace key with your real key from desmos.com/api -->
+    <!-- Desmos Graphing Calculator API -->
     <script defer src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=1ec378a7cfa64077bba3775a779fd2bb"></script>
 
-    <!-- KaTeX for math rendering (used by Exam/Chat/Results pages) -->
+    <!-- KaTeX for math rendering -->
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
