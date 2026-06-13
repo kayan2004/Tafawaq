@@ -1,6 +1,16 @@
 from enum import Enum
 
 
+class Language(str, Enum):
+    en = "en"
+    fr = "fr"
+
+
+class Branch(str, Enum):
+    general_science = "general_science"
+    life_science = "life_science"
+
+
 class SessionType(str, Enum):
     mock_generated = "mock_generated"
     real_past_exam = "real_past_exam"

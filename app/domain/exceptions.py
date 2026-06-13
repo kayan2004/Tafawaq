@@ -13,6 +13,10 @@ class LebaneseCoachError(Exception):
 
 # ── 404 Not Found ────────────────────────────────────────────────────────────
 
+class UserDetailsNotFound(LebaneseCoachError):
+    """User has not completed their profile setup."""
+
+
 class ExamNotFound(LebaneseCoachError):
     """Exam session does not exist or does not belong to the requesting user."""
 
@@ -88,6 +92,10 @@ class AIServiceUnavailable(LebaneseCoachError):
 
 class EmbeddingServiceUnavailable(LebaneseCoachError):
     """Voyage AI API unreachable or returned a non-retryable error."""
+
+
+class TTSServiceUnavailable(LebaneseCoachError):
+    """ElevenLabs TTS API unreachable or returned a non-retryable error."""
 
 
 class VaultUnavailable(LebaneseCoachError):

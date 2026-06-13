@@ -10,7 +10,17 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.domain.enums import SessionStatus, SessionType
+from app.domain.enums import Branch, Language, SessionStatus, SessionType
+
+
+# ── User profile details ─────────────────────────────────────────────────────
+
+class UserDetails(BaseModel):
+    user_id: UUID
+    language: Language
+    grade: int
+    branch: Branch | None = None
+    updated_at: datetime
 
 
 # ── Exam content ─────────────────────────────────────────────────────────────

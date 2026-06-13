@@ -28,7 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID as SAUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.domain.enums import MessageRole, QuestionType, SessionStatus, SessionType
+from app.domain.enums import Branch, Language, MessageRole, QuestionType, SessionStatus, SessionType
 
 
 class Base(DeclarativeBase):
@@ -180,6 +180,23 @@ class OfficialExamORM(Base):
     answer_key: Mapped[dict] = mapped_column(JSONB, nullable=False)
     pdf_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ── User Details (profile: language, grade, branch) ──────────────────────────
+
+class UserDetailsORM(Base):
+    __tablename__ = "user_details"
+
+    id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        SAUUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False
+    )
+    language: Mapped[Language] = mapped_column(SAEnum(Language), nullable=False)
+    grade: Mapped[int] = mapped_column(Integer, nullable=False)
+    branch: Mapped[Branch | None] = mapped_column(SAEnum(Branch), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 # ── Topic Stats ───────────────────────────────────────────────────────────────

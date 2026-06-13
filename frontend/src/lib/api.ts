@@ -60,6 +60,45 @@ export async function getMe(token: string): Promise<{ is_superuser: boolean }> {
   return { is_superuser: data.is_superuser as boolean };
 }
 
+export type Language = "en" | "fr";
+export type Branch = "general_science" | "life_science";
+
+export interface UserDetails {
+  language: Language;
+  grade: number;
+  branch: Branch | null;
+}
+
+export async function getUserDetails(token: string): Promise<UserDetails | null> {
+  const res = await fetch("/auth/me/details", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch profile details");
+  return res.json() as Promise<UserDetails>;
+}
+
+export async function saveUserDetails(token: string, details: UserDetails): Promise<UserDetails> {
+  const res = await fetch("/auth/me/details", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(details),
+  });
+  if (!res.ok) {
+    let detail = "Failed to save profile";
+    try {
+      const e = await res.json();
+      if (Array.isArray(e.detail)) detail = e.detail.map((d: { msg: string }) => d.msg).join(", ");
+      else if (typeof e.detail === "string") detail = e.detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<UserDetails>;
+}
+
 // ── Exam types ────────────────────────────────────────────────────────────────
 
 export interface ExamPart {
@@ -370,4 +409,18 @@ export async function getChatHistory(token: string): Promise<ChatHistoryMessage[
   if (!res.ok) return [];
   const data = await res.json();
   return Array.isArray(data) ? data : [];
+}
+
+/** POST /tts — synthesize spoken-English text, returns audio/mpeg blob. */
+export async function requestTts(token: string, text: string): Promise<Blob> {
+  const res = await fetch("/tts", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`TTS request failed (${res.status})`);
+  return res.blob();
 }

@@ -23,6 +23,7 @@ class AppSecrets(BaseModel):
     minio_access_key: str
     minio_secret_key: str
     jwt_secret: str
+    elevenlabs_api_key: str
 
 
 def resolve_secrets() -> AppSecrets:

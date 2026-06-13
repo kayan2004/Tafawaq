@@ -22,6 +22,8 @@ from app.domain.exceptions import (
     TextbookPageNotFound,
     TextbookPdfMissing,
     TopicNotFound,
+    TTSServiceUnavailable,
+    UserDetailsNotFound,
 )
 from app.domain.models import ErrorResponse
 from app.main import app
@@ -44,6 +46,7 @@ def _error(request: Request, status: int, message: str) -> JSONResponse:
 @app.exception_handler(TextbookPdfMissing)
 @app.exception_handler(OfficialExamNotFound)
 @app.exception_handler(OfficialExamPdfMissing)
+@app.exception_handler(UserDetailsNotFound)
 async def not_found_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
     return _error(request, 404, str(exc) or "Resource not found.")
 
@@ -83,6 +86,7 @@ async def evaluator_response_handler(request: Request, exc: LebaneseCoachError) 
 
 @app.exception_handler(AIServiceUnavailable)
 @app.exception_handler(EmbeddingServiceUnavailable)
+@app.exception_handler(TTSServiceUnavailable)
 async def service_unavailable_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
     return _error(request, 503, "Service temporarily unavailable. Please retry.")
 
