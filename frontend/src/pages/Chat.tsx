@@ -3,14 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import { Icons } from "../lib/icons";
 import { RichMath } from "../lib/math";
 import {
-  clearChatHistory,
   clearToken,
   getChatHistory,
   getExamHistory,
   getToken,
+  requestTts,
   startChatStream,
 } from "../lib/api";
 import type { ExamSessionSummary } from "../lib/api";
+import { messageToSpeech } from "../lib/speechify";
+// @ts-ignore — JSX component, no type declarations
+import TafawwaqMascot from "../../TafawwaqMascot";
 
 interface Msg {
   id: number;
@@ -26,15 +29,43 @@ interface Props {
   onLogout: () => void;
   isAdmin?: boolean;
   onCommand?: (cmd: string) => void;
+  isDark?: boolean;
 }
 
 let _seq = 0;
 const nextId = () => ++_seq;
 
-export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
+// Matches scores ≥ 14/20 in any assistant message
+const NAILED_RE = /\b(1[4-9]|20)\s*\/\s*20\b/;
+
+export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [playingId, setPlayingId] = useState<number | null>(null);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Mascot state
+  const [isNailed, setIsNailed] = useState(false);
+  const [mouthOpen, setMouthOpen] = useState(false);
+  const nailedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Derived mascot state — priority: nailed > talking > thinking > idle
+  const mascotState: "idle" | "thinking" | "talking" | "nailed" =
+    isNailed ? "nailed" :
+    playingId !== null ? "talking" :
+    isStreaming ? "thinking" :
+    "idle";
+
+  const fireNailed = () => {
+    if (nailedResetRef.current) clearTimeout(nailedResetRef.current);
+    setIsNailed(true);
+    nailedResetRef.current = setTimeout(() => setIsNailed(false), 1800);
+  };
 
   // Attached exam state
   const [attachedSession, setAttachedSession] = useState<ExamSessionSummary | null>(null);
@@ -48,6 +79,14 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Cancel rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (nailedResetRef.current !== null) clearTimeout(nailedResetRef.current);
+    };
+  }, []);
 
   // Load persisted history on first mount
   useEffect(() => {
@@ -140,6 +179,7 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
     // Mutable ref so appendToken/finishMsg always target the latest assistant bubble,
     // even after tool-call interleaving creates new ones.
     const asstIdRef = { current: initialAsstId };
+    let accumulated = "";
 
     setMessages((prev) => [
       ...prev,
@@ -151,12 +191,14 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
     abortRef.current = abort;
     let toolCalled = false;
 
-    const appendToken = (chunk: string) =>
+    const appendToken = (chunk: string) => {
+      accumulated += chunk;
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (!last || last.id !== asstIdRef.current) return prev;
         return [...prev.slice(0, -1), { ...last, content: last.content + chunk }];
       });
+    };
 
     const finishMsg = (override?: string) =>
       setMessages((prev) => {
@@ -239,6 +281,9 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
         });
       }
       finishMsg();
+
+      // Fire nailed if the response contains a score ≥ 14/20
+      if (NAILED_RE.test(accumulated)) fireNailed();
     } catch (err) {
       const name = (err as Error).name;
       const msg = (err as Error).message;
@@ -264,22 +309,83 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
     }
   };
 
-  const newChat = () => {
-    abortRef.current?.abort();
-    setMessages([]);
-    setIsStreaming(false);
-    const token = getToken();
-    if (token) clearChatHistory(token).catch(() => {});
-    setTimeout(() => textareaRef.current?.focus(), 0);
+  const stopRaf = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setMouthOpen(false);
   };
 
-  const handleLogout = () => {
-    abortRef.current?.abort();
-    clearToken();
-    onLogout();
+  const handleSpeak = async (msg: Msg) => {
+    // Stop any in-progress amplitude loop first
+    stopRaf();
+
+    if (playingId === msg.id) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setPlayingId(null);
+      return;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingId(null);
+    }
+    if (loadingId !== null) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    setLoadingId(msg.id);
+    try {
+      const blob = await requestTts(token, messageToSpeech(msg.content));
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setPlayingId(msg.id);
+
+      // AudioContext must be created on a user gesture — the click is the gesture.
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") await ctx.resume();
+
+      const source = ctx.createMediaElementSource(audio);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      analyserRef.current = analyser;
+
+      // rAF loop: read frequency amplitude → drive mouthOpen
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const loudness = data.reduce((a, b) => a + b, 0) / data.length;
+        setMouthOpen(loudness > 28);
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+
+      audio.addEventListener("ended", () => {
+        URL.revokeObjectURL(url);
+        stopRaf();
+        setPlayingId(null);
+        if (audioRef.current === audio) audioRef.current = null;
+      });
+
+      audio.play();
+    } catch {
+      // silently fail — TTS is best-effort
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   const SendIcon = Icons.send;
+  const SpeakerIcon = Icons.speaker;
 
   const filteredSessions = pickerSessions.filter((s) => {
     if (!pickerSearch) return true;
@@ -308,21 +414,13 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
             {isAdmin && <span className="chat-admin-badge">admin</span>}
           </div>
         </div>
-        <div className="chat-header-actions">
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 13, padding: "7px 14px" }}
-            onClick={newChat}
-          >
-            New chat
-          </button>
-          <button
-            className="link-btn"
-            style={{ fontSize: 13, color: "var(--muted)" }}
-            onClick={handleLogout}
-          >
-            Sign out
-          </button>
+        <div className="chat-mascot-header">
+          <TafawwaqMascot
+            state={mascotState}
+            mouthOpen={mouthOpen}
+            isDark={isDark}
+            size={72}
+          />
         </div>
       </div>
 
@@ -391,6 +489,22 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
                   <RichMath streaming={msg.streaming}>{msg.content}</RichMath>
                 ) : (
                   msg.content
+                )}
+                {msg.role === "assistant" && !msg.streaming && msg.content && (
+                  <div className="chat-content-actions">
+                    <button
+                      className={`chat-speak-btn${playingId === msg.id ? " is-playing" : ""}${loadingId === msg.id ? " is-loading" : ""}`}
+                      onClick={() => handleSpeak(msg)}
+                      disabled={loadingId !== null}
+                      aria-label={playingId === msg.id ? "Stop reading" : "Read aloud"}
+                    >
+                      {loadingId === msg.id ? (
+                        <span className="chat-speak-spinner" />
+                      ) : (
+                        <SpeakerIcon size={14} className="" />
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -471,6 +585,7 @@ export function Chat({ onLogout, isAdmin = false, onCommand }: Props) {
           <SendIcon size={18} className="" />
         </button>
       </div>
+
     </div>
   );
 }
