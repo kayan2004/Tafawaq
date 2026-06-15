@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icons } from "../lib/icons";
 import { RichMath } from "../lib/math";
+import { SubjectSelector } from "../lib/ui";
 import {
   clearToken,
   getChatHistory,
@@ -14,6 +15,16 @@ import type { ExamSessionSummary } from "../lib/api";
 import { messageToSpeech } from "../lib/speechify";
 // @ts-ignore — JSX component, no type declarations
 import TafawwaqMascot from "../../TafawwaqMascot";
+import { SlashCommandPicker } from "../components/SlashCommandPicker";
+import type { SlashCommandPickerHandle, SlashSendPayload } from "../components/SlashCommandPicker";
+
+interface RetrieveMatch {
+  year: number;
+  session: number;
+  marks: number;
+  content: string;
+  why: string;
+}
 
 interface Msg {
   id: number;
@@ -23,6 +34,7 @@ interface Msg {
   toolName?: string;
   toolInput?: Record<string, unknown>;
   noTools?: boolean;
+  kind?: "retrieve";
 }
 
 interface Props {
@@ -40,7 +52,6 @@ const NAILED_RE = /\b(1[4-9]|20)\s*\/\s*20\b/;
 
 export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [playingId, setPlayingId] = useState<number | null>(null);
   const [loadingId, setLoadingId] = useState<number | null>(null);
@@ -76,9 +87,44 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
 
+  const [activeCmd, setActiveCmd] = useState<string | null>(null);
+  const slashPickerRef = useRef<SlashCommandPickerHandle>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Image attachment for /retrieve
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imageFile) { setImagePreviewUrl(null); return; }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImageBase64(null);
+    setImageMimeType(null);
+  };
+
+  const onImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImageMimeType(file.type);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setImageBase64(result.split(",")[1]);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   // Cancel rAF on unmount
   useEffect(() => {
@@ -95,7 +141,16 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     getChatHistory(token).then((history) => {
       if (history.length === 0) return;
       setMessages(
-        history.map((m) => ({ id: nextId(), role: m.role, content: m.content, streaming: false }))
+        history.map((m) => {
+          const base: Msg = { id: nextId(), role: m.role, content: m.content, streaming: false };
+          if (m.role === "assistant") {
+            try {
+              const parsed = JSON.parse(m.content);
+              if (parsed?.event === "retrieve_result") return { ...base, kind: "retrieve" as const };
+            } catch { /* not JSON */ }
+          }
+          return base;
+        })
       );
     });
   }, []);
@@ -133,24 +188,14 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-grow the textarea
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [input]);
-
-  const send = async () => {
-    const text = input.trim();
+  const send = async (payload: SlashSendPayload) => {
+    const text = payload.text.trim();
     if (!text || isStreaming) return;
 
     const token = getToken();
     if (!token) { onLogout(); return; }
 
-    setInput("");
-
-    // Slash-command dispatch — never reaches the chat API
+    // Slash-command dispatch — /retrieve falls through to the chat API; others are handled here
     if (text.startsWith("/")) {
       const cmd = text.slice(1).split(/\s+/)[0].toLowerCase();
       if (cmd === "generate") {
@@ -160,17 +205,29 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
           { id: nextId(), role: "assistant", content: "Sure! I've queued a new mock exam for you — head to the Exams tab whenever you're ready.", streaming: false },
         ]);
         onCommand?.("generate");
+        return;
       } else if (cmd === "exam") {
-        setInput("");
         openPicker();
+        return;
+      } else if (cmd === "retrieve") {
+        const query = text.slice("/retrieve".length).trim();
+        if (!query && !imageFile) {
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: "user", content: text, streaming: false },
+            { id: nextId(), role: "assistant", content: "Usage: `/retrieve <question>` — or attach an image of a problem to find similar past exam questions.", streaming: false },
+          ]);
+          return;
+        }
+        // /retrieve with a query or image falls through to the streaming path below
       } else {
         setMessages((prev) => [
           ...prev,
           { id: nextId(), role: "user", content: text, streaming: false },
           { id: nextId(), role: "assistant", content: `Unknown command: \`/${cmd}\``, streaming: false },
         ]);
+        return;
       }
-      return;
     }
 
     setIsStreaming(true);
@@ -189,7 +246,7 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
 
     const abort = new AbortController();
     abortRef.current = abort;
-    let toolCalled = false;
+    let pendingToolId: number | null = null;
 
     const appendToken = (chunk: string) => {
       accumulated += chunk;
@@ -210,21 +267,30 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
         ];
       });
 
-    // Close current assistant bubble, insert a tool chip, open a fresh assistant bubble.
-    const addToolAndContinue = (toolName: string, toolInput: Record<string, unknown>) => {
+    // Close current assistant bubble, insert a pending tool chip, open a fresh assistant bubble.
+    const splitForTool = () => {
       const oldAsstId = asstIdRef.current;
       const toolId = nextId();
       const newAsstId = nextId();
+      pendingToolId = toolId;
       asstIdRef.current = newAsstId;
       setMessages((prev) => [
         ...prev.map((m) => (m.id === oldAsstId ? { ...m, streaming: false } : m)),
-        { id: toolId, role: "tool" as const, content: "", streaming: false, toolName, toolInput },
+        { id: toolId, role: "tool" as const, content: "…", streaming: false },
         { id: newAsstId, role: "assistant" as const, content: "", streaming: true },
       ]);
     };
 
+    const resolveToolLabel = (label: string) => {
+      if (pendingToolId === null) return;
+      const id = pendingToolId;
+      pendingToolId = null;
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: label } : m)));
+    };
+
     try {
-      const reader = await startChatStream(text, token, abort.signal, attachedSession?.session_id);
+      const reader = await startChatStream(text, token, abort.signal, attachedSession?.session_id, imageBase64 ?? null, imageMimeType ?? null);
+      clearImage();
       const decoder = new TextDecoder();
       let buffer = "";
       let done = false;
@@ -251,12 +317,24 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
           const event = payload.event as string;
           if (event === "token") {
             appendToken(payload.text as string);
-          } else if (event === "tool_use" && isAdmin) {
-            toolCalled = true;
-            addToolAndContinue(
-              payload.name as string,
-              payload.input as Record<string, unknown>,
-            );
+          } else if (event === "retrieve_result") {
+            const resultJson = JSON.stringify({ event: "retrieve_result", matches: payload.matches });
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (!last || last.id !== asstIdRef.current) return prev;
+              return [...prev.slice(0, -1), { ...last, content: resultJson, streaming: false, kind: "retrieve" as const }];
+            });
+            done = true;
+            break;
+          } else if (event === "tool_use") {
+            splitForTool();
+          } else if (event === "textbook_page") {
+            const pn = payload.page_number as number;
+            const sec = payload.section as string | undefined;
+            resolveToolLabel(sec ? `Retrieved textbook page ${pn} — ${sec}` : `Retrieved textbook page ${pn}`);
+          } else if (event === "textbook_sections") {
+            const secs = payload.sections as unknown[];
+            resolveToolLabel(`Retrieved ${secs.length} relevant textbook section${secs.length !== 1 ? "s" : ""}`);
           } else if (event === "guardrail_block") {
             finishMsg(payload.message as string);
             done = true;
@@ -270,16 +348,6 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
         }
       }
 
-      if (isAdmin && !toolCalled) {
-        const noToolId = nextId();
-        const currentAsstId = asstIdRef.current;
-        setMessages((prev) => {
-          const idx = prev.findIndex((m) => m.id === currentAsstId);
-          if (idx === -1) return prev;
-          const indicator: Msg = { id: noToolId, role: "tool", content: "", streaming: false, noTools: true };
-          return [...prev.slice(0, idx), indicator, ...prev.slice(idx)];
-        });
-      }
       finishMsg();
 
       // Fire nailed if the response contains a score ≥ 14/20
@@ -299,13 +367,6 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
-    }
-  };
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
     }
   };
 
@@ -384,8 +445,8 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     }
   };
 
-  const SendIcon = Icons.send;
   const SpeakerIcon = Icons.speaker;
+  const ImageIcon = Icons.image;
 
   const filteredSessions = pickerSessions.filter((s) => {
     if (!pickerSearch) return true;
@@ -414,7 +475,8 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
             {isAdmin && <span className="chat-admin-badge">admin</span>}
           </div>
         </div>
-        <div className="chat-mascot-header">
+        <div className="chat-mascot-header" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <SubjectSelector />
           <TafawwaqMascot
             state={mascotState}
             mouthOpen={mouthOpen}
@@ -428,50 +490,20 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
       <div className="chat-messages">
         {messages.length === 0 && (
           <div className="chat-empty">
-            <div className="chat-empty-mark">∑</div>
-            <p className="chat-empty-title">Ask the Math Coach anything</p>
-            <p className="chat-empty-hint">
-              Functions · Integrals · Probability · Complex numbers · Space geometry
-            </p>
-            <div className="chat-suggestions">
-              {[
-                "Explain how to find the center of symmetry of a rational function",
-                "Walk me through integration by parts with an example",
-                "What are the main theorems I need for complex numbers?",
-              ].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className="chat-suggestion"
-                  onClick={() => { setInput(s); textareaRef.current?.focus(); }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+          
+            <p className="chat-empty-title">Ask AI Anything</p>
+            
+            
           </div>
         )}
 
         {messages.map((msg) => {
           if (msg.role === "tool") {
-            const SparkIcon = Icons.spark;
-            if (msg.noTools) {
-              return (
-                <div key={msg.id} className="chat-tool-call chat-tool-none">
-                  <SparkIcon size={14} className="chat-tool-icon" />
-                  <span className="chat-tool-none-label">no tools were used</span>
-                </div>
-              );
-            }
+            const BookIcon = Icons.book;
             return (
-              <div key={msg.id} className="chat-tool-call">
-                <SparkIcon size={14} className="chat-tool-icon" />
-                <div className="chat-tool-body">
-                  <span className="chat-tool-name">{msg.toolName}</span>
-                  <pre className="chat-tool-input">
-                    {JSON.stringify(msg.toolInput, null, 2)}
-                  </pre>
-                </div>
+              <div key={msg.id} className="msg-tool">
+                <BookIcon size={14} className="" />
+                {msg.content}
               </div>
             );
           }
@@ -479,34 +511,63 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
           // Skip empty non-streaming assistant bubbles (can appear before tool chips)
           if (msg.role === "assistant" && !msg.streaming && !msg.content) return null;
 
-          return (
-            <div key={msg.id} className={`chat-bubble ${msg.role}`}>
-              <div className={`chat-avatar ${msg.role}`}>
-                {msg.role === "assistant" ? "∑" : "You"}
-              </div>
-              <div className="chat-content">
-                {msg.role === "assistant" ? (
-                  <RichMath streaming={msg.streaming}>{msg.content}</RichMath>
-                ) : (
-                  msg.content
-                )}
-                {msg.role === "assistant" && !msg.streaming && msg.content && (
-                  <div className="chat-content-actions">
-                    <button
-                      className={`chat-speak-btn${playingId === msg.id ? " is-playing" : ""}${loadingId === msg.id ? " is-loading" : ""}`}
-                      onClick={() => handleSpeak(msg)}
-                      disabled={loadingId !== null}
-                      aria-label={playingId === msg.id ? "Stop reading" : "Read aloud"}
-                    >
-                      {loadingId === msg.id ? (
-                        <span className="chat-speak-spinner" />
-                      ) : (
-                        <SpeakerIcon size={14} className="" />
-                      )}
-                    </button>
+          // Retrieve-result cards
+          if (msg.role === "assistant" && msg.kind === "retrieve") {
+            let matches: RetrieveMatch[] = [];
+            try {
+              const parsed = JSON.parse(msg.content);
+              if (Array.isArray(parsed.matches)) matches = parsed.matches;
+            } catch { /* empty */ }
+            return (
+              <div key={msg.id} className="msg msg-ai">
+                <div className="chat-retrieve-cards">
+                    {matches.length === 0 ? (
+                      <p className="chat-retrieve-empty">No similar past exam questions found.</p>
+                    ) : (
+                      matches.map((m, i) => (
+                        <div key={i} className="chat-retrieve-card">
+                          <div className="chat-retrieve-card-header">
+                            <span className="chat-retrieve-year">{m.year}</span>
+                            <span className="chat-retrieve-dot">·</span>
+                            <span className="chat-retrieve-session">Session {m.session}</span>
+                            <span className="chat-retrieve-dot">·</span>
+                            <span className="chat-retrieve-marks">{m.marks} marks</span>
+                          </div>
+                          <div className="chat-retrieve-latex">
+                            <RichMath streaming={false}>{m.content}</RichMath>
+                          </div>
+                          <p className="chat-retrieve-why">{m.why}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
-                )}
               </div>
+            );
+          }
+
+          return (
+            <div key={msg.id} className={`msg ${msg.role === "assistant" ? "msg-ai" : "msg-user"}`}>
+              {msg.role === "assistant" ? (
+                <RichMath streaming={msg.streaming}>{msg.content}</RichMath>
+              ) : (
+                msg.content
+              )}
+              {msg.role === "assistant" && !msg.streaming && msg.content && (
+                <div className="chat-content-actions">
+                  <button
+                    className={`chat-speak-btn${playingId === msg.id ? " is-playing" : ""}${loadingId === msg.id ? " is-loading" : ""}`}
+                    onClick={() => handleSpeak(msg)}
+                    disabled={loadingId !== null}
+                    aria-label={playingId === msg.id ? "Stop reading" : "Read aloud"}
+                  >
+                    {loadingId === msg.id ? (
+                      <span className="chat-speak-spinner" />
+                    ) : (
+                      <SpeakerIcon size={14} className="" />
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -563,27 +624,47 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
         </div>
       )}
 
+      {/* ── Image preview chip ── */}
+      {imageFile && imagePreviewUrl && (
+        <div className="chat-image-chip-bar">
+          <div className="chat-image-chip">
+            <img className="chat-image-thumb" src={imagePreviewUrl} alt="" />
+            <span className="chat-image-chip-name">{imageFile.name}</span>
+            <button className="chat-image-chip-dismiss" onClick={clearImage} aria-label="Remove image">×</button>
+          </div>
+        </div>
+      )}
+
       {/* ── Input bar ── */}
       <div className="chat-input-bar">
-        <textarea
-          ref={textareaRef}
-          className="chat-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Ask about derivatives, probability, complex numbers… (Enter to send, Shift+Enter for new line)"
-          rows={1}
-          disabled={isStreaming}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          style={{ display: "none" }}
+          onChange={onImageSelect}
         />
-        <button
-          type="button"
-          className="btn btn-blue chat-send-btn"
-          onClick={send}
-          disabled={isStreaming || !input.trim()}
-          aria-label="Send message"
-        >
-          <SendIcon size={18} className="" />
-        </button>
+        <SlashCommandPicker
+          ref={slashPickerRef}
+          onSelect={(cmd) => { if (cmd === "/exam") openPicker(); }}
+          onSend={send}
+          disabled={isStreaming}
+          onChipChange={setActiveCmd}
+          adornment={
+            activeCmd === "/retrieve" ? (
+              <button
+                type="button"
+                className={`chat-image-attach-btn${imageFile ? " has-image" : ""}`}
+                onClick={() => imageInputRef.current?.click()}
+                disabled={isStreaming}
+                title="Attach an image of the problem"
+                aria-label="Attach image"
+              >
+                <ImageIcon size={18} className="" />
+              </button>
+            ) : undefined
+          }
+        />
       </div>
 
     </div>
