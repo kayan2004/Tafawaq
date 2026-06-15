@@ -38,15 +38,14 @@ function Ico({ d, paths, fill, size = 20, sw = 2, className = "nav-ico", style }
 }
 
 export type IconName =
-  | "dashboard" | "exam" | "past" | "topics" | "chat" | "history"
+  | "dashboard" | "exam" | "topics" | "chat" | "history"
   | "timer" | "check" | "arrow" | "chevron" | "send" | "spark"
   | "plus" | "alert" | "scale" | "target" | "flame" | "book" | "eye" | "eye-off"
-  | "speaker";
+  | "speaker" | "image";
 
 export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   dashboard: (p) => <Ico {...p} paths={<><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></>} />,
   exam: (p) => <Ico {...p} paths={<><path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12l2 2 4-4"/></>} />,
-  past: (p) => <Ico {...p} paths={<><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v3l2 1.5"/></>} />,
   topics: (p) => <Ico {...p} paths={<><path d="M4 19V5"/><path d="M4 19h16"/><rect x="7" y="11" width="3" height="5" rx="1"/><rect x="12" y="7" width="3" height="9" rx="1"/><rect x="17" y="13" width="3" height="3" rx="1"/></>} />,
   chat: (p) => <Ico {...p} paths={<><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 10h8M8 13.5h5"/></>} />,
   history: (p) => <Ico {...p} paths={<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></>} />,
@@ -65,4 +64,5 @@ export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   eye: (p) => <Ico {...p} paths={<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></>} />,
   "eye-off": (p) => <Ico {...p} paths={<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20"/>} />,
   speaker: (p) => <Ico {...p} paths={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />,
+  image: (p) => <Ico {...p} paths={<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></>} />,
 };

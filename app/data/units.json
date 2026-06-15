@@ -1,0 +1,66 @@
+[
+  {
+    "exam_id": "2023_s1",
+    "year": 2023,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "Differential Equations",
+    "text": "Consider the differential equation (E): y' - 2y = e^{2x}, where y is a function of x. Solve the homogeneous equation y' - 2y = 0. Find a particular solution of (E) of the form y = axe^{2x}. Write the general solution of (E). Determine the solution satisfying y(0) = 1."
+  },
+  {
+    "exam_id": "2023_s1",
+    "year": 2023,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "Integrals",
+    "text": "Let f(x) = (2x - 1)e^{-x}. Let (C) be the curve of f in an orthonormal frame (O; \\vec{i}, \\vec{j}) and let D be the domain bounded by (C), the x-axis, and the lines x = 0 and x = 1. Calculate \\int_0^1 f(x)\\,dx using integration by parts. Determine the sign of f(x) on [0, 1]. Calculate the area of D. Express the answer in square units."
+  },
+  {
+    "exam_id": "2023_s1",
+    "year": 2023,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "Geometry in Space",
+    "text": "In space with orthonormal frame (O; \\vec{i}, \\vec{j}, \\vec{k}), consider points A(1, 0, 2), B(3, 1, 0), C(0, 2, 1), and the plane (P): x + y - z + 1 = 0. Find a normal vector \\vec{n} to the plane (P). Write an equation of the plane (Q) passing through A and parallel to (P). Find the distance from point B to plane (P)."
+  },
+  {
+    "exam_id": "2023_s1",
+    "year": 2023,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "Logarithmic and Exponential Functions",
+    "text": "Consider the function g defined on (0, +\\infty) by g(x) = x\\ln x - x + 1. Calculate \\lim_{x \\to 0^+} g(x). Calculate g'(x) and study its sign. Deduce the minimum value of g on (0, +\\infty). Show that g(x) \\geq 0 for all x > 0. Deduce that \\ln x \\geq 1 - \\frac{1}{x} for all x > 0. Using the result of part 3, show that \\sum_{k=1}^{n} \\frac{1}{k} \\geq \\ln(n+1) for all n \\geq 1."
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "Numerical Sequences",
+    "text": "Consider the sequence (U_n) defined by U_0 = 1 and U_{n+1} = \\frac{1}{3}U_n + 2 for all n \\geq 0. Calculate U_1 and U_2. Let V_n = U_n - 3. Show that (V_n) is a geometric sequence and give its common ratio and first term. Express V_n then U_n in terms of n. Calculate \\lim_{n \\to +\\infty} U_n."
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "Complex Numbers",
+    "text": "Let z = \\sqrt{3} + i. In the complex plane with orthonormal basis (O; \\vec{u}, \\vec{v}), let A and B be the points with respective affixes z and iz. Write z in trigonometric (polar) form. Find the modulus and argument of iz. Show that triangle OAB is a right isosceles triangle. Specify the right angle vertex."
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "Functions",
+    "text": "Consider the function f defined on \\mathbb{R} by f(x) = \\frac{2e^x}{e^x + 1}. Let (C) be its curve in an orthonormal frame. Determine \\lim_{x \\to -\\infty} f(x) and \\lim_{x \\to +\\infty} f(x). Deduce the asymptotes of (C). Show that f'(x) = \\frac{2e^x}{(e^x + 1)^2}. Study the sign of f'(x) and deduce the variations of f. Show that the point I(0, 1) is a center of symmetry of (C). Sketch (C)."
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "Probability",
+    "text": "A box contains 4 red balls and 6 blue balls. Three balls are drawn simultaneously at random. What is the probability that all three balls are blue? Let X be the random variable equal to the number of red balls drawn. Determine the probability distribution of X. Calculate E(X), the expected value of X. Calculate V(X), the variance of X."
+  }
+]

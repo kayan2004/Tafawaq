@@ -21,7 +21,7 @@ import type {
   PartResult,
 } from "../lib/api";
 import { RichMath } from "../lib/math";
-import { Pill } from "../lib/ui";
+import { Pill, SubjectSelector } from "../lib/ui";
 
 // Desmos JS API types (subset we use)
 interface DesmosExpression { id: string; latex?: string; hidden?: boolean; }
@@ -503,8 +503,11 @@ export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">Exams</h1>
-        <p className="page-sub">Official Lebanese GS Baccalaureate exams and AI-generated mock exams.</p>
+        <div>
+          <h1 className="page-title">Exams</h1>
+          <p className="page-sub">Official Lebanese GS Baccalaureate exams and AI-generated mock exams.</p>
+        </div>
+        <SubjectSelector />
       </div>
 
       <div className="exam-section">

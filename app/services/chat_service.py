@@ -1,6 +1,8 @@
 """Chat turn handling with guardrails and curriculum-scoped system prompt."""
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import pathlib
 from typing import AsyncGenerator
@@ -12,16 +14,21 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import MessageRole
-from app.infra.llm.claude import stream_claude
+from app.infra.llm.claude import call_claude, call_claude_vision, stream_claude
 from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL
 from app.infra.vault import AppSecrets
 from app.repositories import exam_repo, message_repo, textbook_repo
 from app.services import guardrails_service, retrieval_service
 from prompts.chat import BLOCK_MESSAGE as _BLOCK_MESSAGE
+from prompts.chat import IMAGE_EXTRACT_PROMPT as _IMAGE_EXTRACT_PROMPT
+from prompts.chat import RETRIEVE_SYSTEM_PROMPT as _RETRIEVE_SYSTEM_PROMPT
 from prompts.chat import WARNING_SUFFIX as _WARNING_SUFFIX
 from prompts.chat import build_chat_system_prompt as _build_chat_system_prompt_fn
+from prompts.chat import build_retrieve_user_message as _build_retrieve_user_message
 
 _CHAT_TOOLS = [RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL]
+
+_RETRIEVE_PREFIX = "/retrieve "
 
 _curriculum: dict = json.loads(
     (pathlib.Path(__file__).parent.parent / "data" / "curriculum.json").read_text()
@@ -100,6 +107,8 @@ async def handle_turn(
     redis: Redis,
     is_admin: bool = False,
     attached_session_id: UUID | None = None,
+    image_base64: str | None = None,
+    image_media_type: str | None = None,
 ) -> AsyncGenerator[str, None]:
     # Open our own asyncpg connection for the generator's lifetime.
     # Cannot use Depends(get_db_conn) here: FastAPI closes dependencies when the
@@ -113,6 +122,75 @@ async def handle_turn(
 
         await message_repo.add_message(db_session, conv.id, MessageRole.user, message)
         await db_session.commit()
+
+        if message == "/retrieve" or message.startswith(_RETRIEVE_PREFIX):
+            query = message[len("/retrieve"):].strip()
+            if image_base64 and image_media_type:
+                try:
+                    image_bytes = base64.b64decode(image_base64)
+                    extracted = await asyncio.to_thread(
+                        call_claude_vision,
+                        image_bytes,
+                        image_media_type,
+                        _IMAGE_EXTRACT_PROMPT,
+                        secrets.anthropic_api_key,
+                        1024,
+                    )
+                    extracted = extracted.strip()
+                    if extracted:
+                        query = extracted + ("\n\n" + query if query else "")
+                except Exception:
+                    pass  # degrade: continue with text query only
+            matches: list[dict] = []
+            if query:
+                candidates = await retrieval_service.retrieve_past_questions(
+                    query=query,
+                    topic=None,
+                    question_type=None,
+                    year_from=None,
+                    year_to=None,
+                    limit=6,
+                    secrets=secrets,
+                    conn=conn,
+                )
+                if candidates:
+                    candidate_dicts = [
+                        {
+                            "year": q.year,
+                            "session": q.session,
+                            "marks": q.marks,
+                            "content": q.content,
+                        }
+                        for q in candidates
+                    ]
+                    raw = await asyncio.to_thread(
+                        call_claude,
+                        [{"role": "user", "content": _build_retrieve_user_message(query, candidate_dicts)}],
+                        _RETRIEVE_SYSTEM_PROMPT,
+                        secrets.anthropic_api_key,
+                        3000,
+                    )
+                    # Parse defensively: strip markdown fences, find outermost {}
+                    try:
+                        text = raw.strip()
+                        if text.startswith("```"):
+                            lines = text.splitlines()
+                            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                        start = text.find("{")
+                        end = text.rfind("}") + 1
+                        parsed = json.loads(text[start:end]) if start != -1 and end > start else {}
+                        raw_matches = parsed.get("matches", [])
+                        matches = raw_matches if isinstance(raw_matches, list) else []
+                    except (json.JSONDecodeError, ValueError):
+                        matches = []
+
+            payload = json.dumps({"event": "retrieve_result", "matches": matches})
+            yield f"data: {payload}\n\n"
+            yield f"data: {json.dumps({'event': 'done'})}\n\n"
+            yield "data: [DONE]\n\n"
+            await message_repo.add_message(db_session, conv.id, MessageRole.assistant, payload)
+            await db_session.commit()
+            return
 
         off_topic = await guardrails_service.classify_message(message)
         counter = await guardrails_service.get_counter(redis, str(conv.id))

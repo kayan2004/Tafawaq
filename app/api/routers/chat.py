@@ -22,6 +22,8 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 class ChatRequest(BaseModel):
     message: str
     attached_session_id: str | None = None
+    image_base64: str | None = None
+    image_media_type: str | None = None
 
 
 @router.post("")
@@ -48,6 +50,8 @@ async def chat(
             db_session=db_session,
             redis=redis,
             attached_session_id=attached,
+            image_base64=body.image_base64,
+            image_media_type=body.image_media_type,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

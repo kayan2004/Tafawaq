@@ -18,7 +18,7 @@ from minio.error import S3Error
 from ingestion.chunker import chunk_pdf
 from ingestion.embedder import embed_batch
 from ingestion.pdf_extractor import extract_pages
-from ingestion.tagger import tag_chunks
+from ingestion.tagger import tag_chunks  # deterministic — no LLM calls
 
 # Stable namespace for deterministic chunk UUIDs — never change this value.
 _CHUNK_UUID_NS = uuid.UUID("7a6d8f1e-3b2c-4a5e-9f0d-1c2b3a4e5f6d")
@@ -116,14 +116,9 @@ def upload_pdfs(pdf_dir: str, minio_client: Minio) -> list[str]:
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 
-def _has_unknowns(chunks: list[dict]) -> bool:
-    return any(not c.get("topic") or c["topic"] == "Unknown" for c in chunks)
-
-
 async def run_pipeline(
     pdf_dir: str,
     db_url: str,
-    anthropic_key: str,
     voyage_key: str,
     minio_url: str,
     minio_access: str,
@@ -157,73 +152,46 @@ async def run_pipeline(
 
     if embedded is not None:
         all_chunks = embedded
-        # A stale embedded cache may still carry Unknown topics — handled below.
     else:
-        tagged = _load_stage("02_tagged.json")
-        if tagged is not None:
-            all_chunks = tagged
-        else:
-            raw = _load_stage("01_chunks.json")
-            if raw is None:
-                # Run extraction from MinIO
-                raw = []
-                for obj in minio_client.list_objects(bucket):
-                    name = obj.object_name
-                    print(f"[ingestion] Processing {name}...")
-                    try:
-                        year, session = filename_to_meta(name)
-                    except ValueError as exc:
-                        print(f"[ingestion] WARNING: {exc} — skipping")
-                        continue
+        raw = _load_stage("01_chunks.json")
+        if raw is None:
+            # ── Stage 1: Extract + chunk ──────────────────────────────────────
+            raw = []
+            for obj in minio_client.list_objects(bucket):
+                name = obj.object_name
+                print(f"[ingestion] Processing {name}...")
+                try:
+                    year, session = filename_to_meta(name)
+                except ValueError as exc:
+                    print(f"[ingestion] WARNING: {exc} — skipping")
+                    continue
 
-                    response = minio_client.get_object(bucket, name)
-                    try:
-                        pdf_bytes = response.read()
-                    finally:
-                        response.close()
-                        response.release_conn()
+                response = minio_client.get_object(bucket, name)
+                try:
+                    pdf_bytes = response.read()
+                finally:
+                    response.close()
+                    response.release_conn()
 
-                    pages = extract_pages(pdf_bytes)
-                    chunks = chunk_pdf(pages, year, session)
-                    print(f"[ingestion] Extracted {len(chunks)} chunks from {name}")
-                    raw.extend(chunks)
+                pages = extract_pages(pdf_bytes)
+                chunks = chunk_pdf(pages, year, session)
+                print(f"[ingestion] Extracted {len(chunks)} chunks from {name}")
+                raw.extend(chunks)
 
-                if not raw:
-                    print("[ingestion] No chunks extracted — check PDF content and exercise headings")
-                    return
+            if not raw:
+                print("[ingestion] No chunks extracted — check PDF content and exercise headings")
+                return
 
-                _save_stage("01_chunks.json", raw)
+            _save_stage("01_chunks.json", raw)
 
-            all_chunks = raw
-
-        # ── Stage 2: Tag ──────────────────────────────────────────────────────
-        if _has_unknowns(all_chunks):
-            CACHE_DIR.mkdir(exist_ok=True)
-            progress_file = CACHE_DIR / "02_tagging_progress.json"
-            print(f"[ingestion] Tagging {len(all_chunks)} chunks via claude-haiku...")
-            all_chunks = tag_chunks(all_chunks, anthropic_key, progress_file=progress_file)
-            _save_stage("02_tagged.json", all_chunks)
-            if progress_file.exists():
-                progress_file.unlink()
-        else:
-            print(f"[ingestion] All {len(all_chunks)} chunks tagged — skipping stage 2")
+        # ── Stage 2: Tag (deterministic — no LLM calls) ───────────────────────
+        print(f"[ingestion] Tagging {len(raw)} chunks...")
+        all_chunks = tag_chunks(raw)
 
         # ── Stage 3: Embed ────────────────────────────────────────────────────
         print(f"[ingestion] Embedding {len(all_chunks)} chunks via voyage-large-2...")
         all_chunks = embed_batch(all_chunks, voyage_key)
         _save_stage("03_embedded.json", all_chunks)
-
-    # Re-tag Unknown topics in an existing embedded checkpoint without re-embedding.
-    # Embeddings are content-based; only the metadata needs updating.
-    if _has_unknowns(all_chunks):
-        CACHE_DIR.mkdir(exist_ok=True)
-        progress_file = CACHE_DIR / "02_tagging_progress.json"
-        unknowns = sum(1 for c in all_chunks if not c.get("topic") or c["topic"] == "Unknown")
-        print(f"[ingestion] Re-tagging {unknowns} Unknown chunks (embeddings unchanged)...")
-        all_chunks = tag_chunks(all_chunks, anthropic_key, progress_file=progress_file)
-        _save_stage("03_embedded.json", all_chunks)
-        if progress_file.exists():
-            progress_file.unlink()
 
     # ── Stage 4: Insert into PostgreSQL ───────────────────────────────────────
     print("[ingestion] Inserting into pgvector...")
@@ -334,7 +302,6 @@ if __name__ == "__main__":
         run_pipeline(
             pdf_dir=args.pdf_dir,
             db_url=args.db_url,
-            anthropic_key=secrets["anthropic_api_key"],
             voyage_key=secrets["voyage_api_key"],
             minio_url=args.minio_url,
             minio_access=args.minio_access,

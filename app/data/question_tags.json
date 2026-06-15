@@ -1,0 +1,1232 @@
+[
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I - ( 2 points)",
+    "chapter_ids": [
+      11,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II - ( 3points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III - ( 2.5 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV - ( 3points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V - ( 2.5points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s1",
+    "year": 2004,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI - ( 7 points)",
+    "chapter_ids": [
+      6,
+      8,
+      13,
+      14
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points) .",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II-( 3.5 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (2 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- ( 2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- ( 3,5 points)",
+    "chapter_ids": [
+      17,
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2004_s2",
+    "year": 2004,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      8,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I – (1.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II– (2.5points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III– ( 3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV– (2 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V– ( 3.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s1",
+    "year": 2006,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI– (7.5 points)",
+    "chapter_ids": [
+      6,
+      8,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I – (1.5 points)",
+    "chapter_ids": [
+      6
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II-( 2.5 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III-( 3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V-( 2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2006_s2",
+    "year": 2006,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- ( 7.5 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I-(2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II- (2 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s1",
+    "year": 2008,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      7,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      4
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III-(3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2008_s2",
+    "year": 2008,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      4,
+      8,
+      13,
+      14,
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I - (2 points)",
+    "chapter_ids": [
+      4,
+      7
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II - (2 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s1",
+    "year": 2012,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      13,
+      14
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2points)",
+    "chapter_ids": [
+      6
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2012_s2",
+    "year": 2012,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI - (7 points)",
+    "chapter_ids": [
+      2,
+      6,
+      9,
+      14
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I- ( 2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II-( 3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- ( 2 points)",
+    "chapter_ids": [
+      6,
+      9
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- ( 3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- ( 3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s1",
+    "year": 2015,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- ( 7 points)",
+    "chapter_ids": [
+      6,
+      8,
+      9,
+      14,
+      15
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      11
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- ( 2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2015_s2",
+    "year": 2015,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I- (2.5 points)",
+    "chapter_ids": [
+      4
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II- (2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s1",
+    "year": 2016,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      6,
+      8,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      4,
+      6
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- (2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (2.5 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2016_s2",
+    "year": 2016,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      4
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II- (2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- (2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s1",
+    "year": 2017,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      4,
+      6,
+      8,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (4 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2017_s2",
+    "year": 2017,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (6 points)",
+    "chapter_ids": [
+      4,
+      12,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      4
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 2,
+    "header": "II- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      9
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s0",
+    "year": 2019,
+    "session": 0,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      4,
+      9,
+      13,
+      14
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 2,
+    "header": "II- (2.5 points)",
+    "chapter_ids": [
+      18
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 3,
+    "header": "III- (2.5 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 4,
+    "header": "IV- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 5,
+    "header": "V- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2019_s2",
+    "year": 2019,
+    "session": 2,
+    "exercise_id": 6,
+    "header": "VI- (7 points)",
+    "chapter_ids": [
+      6
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2021_s0",
+    "year": 2021,
+    "session": 0,
+    "exercise_id": 1,
+    "header": "I- (2 points)",
+    "chapter_ids": [
+      6,
+      7
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2021_s0",
+    "year": 2021,
+    "session": 0,
+    "exercise_id": 2,
+    "header": "II- (3 points)",
+    "chapter_ids": [
+      7
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2021_s0",
+    "year": 2021,
+    "session": 0,
+    "exercise_id": 3,
+    "header": "III- (3 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2021_s0",
+    "year": 2021,
+    "session": 0,
+    "exercise_id": 4,
+    "header": "IV- (4 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "none"
+  },
+  {
+    "exam_id": "2021_s0",
+    "year": 2021,
+    "session": 0,
+    "exercise_id": 5,
+    "header": "V- (8 points)",
+    "chapter_ids": [
+      6,
+      7,
+      13
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 1,
+    "header": "I- Functions and Complex numbers (4 points)",
+    "chapter_ids": [
+      6
+    ],
+    "matched_via": "keyword"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 2,
+    "header": "II- Probability (4 points)",
+    "chapter_ids": [
+      17,
+      18
+    ],
+    "matched_via": "header"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 3,
+    "header": "III- Complex numbers (4 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "header"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 4,
+    "header": "IV- Transformations (4 points)",
+    "chapter_ids": [
+      0
+    ],
+    "matched_via": "header"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 5,
+    "header": "V- Functions (4 points)",
+    "chapter_ids": [
+      7,
+      8
+    ],
+    "matched_via": "both"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 6,
+    "header": "VI- Functions (4 points)",
+    "chapter_ids": [
+      6
+    ],
+    "matched_via": "both"
+  },
+  {
+    "exam_id": "2024_s1",
+    "year": 2024,
+    "session": 1,
+    "exercise_id": 7,
+    "header": "VII- Numerical sequences and integrals (4 points)",
+    "chapter_ids": [
+      6,
+      7,
+      9,
+      13
+    ],
+    "matched_via": "keyword"
+  }
+]

@@ -1,88 +1,82 @@
-"""claude-haiku topic/subtopic/question_type tagging per chunk."""
-import json
-import re
+"""Deterministic topic tagging for exam chunks.
+
+Replaces the previous claude-haiku LLM tagger.  No API calls, no progress
+file, no rate limits.  The public signature of tag_chunks() is unchanged so
+pipeline.py requires no edits — api_key and progress_file are accepted but
+ignored.
+
+Topic is set to the chapter title(s) from curriculum.json joined by " / " for
+multi-chapter exercises (e.g. "Natural Logarithm / Exponential Function").
+Subtopic is left blank; question_type defaults to "calculation" because
+question-type classification requires semantic understanding that the
+deterministic tagger does not attempt.
+"""
+from __future__ import annotations
+
+import logging
 from pathlib import Path
 
-import anthropic
+from ingestion.topic_tagging import (
+    chunks_to_units,
+    load_taxonomy,
+    tag_all_units,
+)
 
-from prompts.tagging_past_exams import TAG_PROMPT
+logger = logging.getLogger(__name__)
 
-
-def _chunk_key(chunk: dict) -> str:
-    """Globally unique key for a chunk across all exams."""
-    return (
-        f"{chunk.get('year')}-{chunk.get('session')}"
-        f"-{chunk.get('source_type')}-{chunk.get('exercise_id')}"
-    )
+# Loaded once at import time — curriculum.json is stable across a pipeline run.
+_TAXONOMY: dict[int, str] = load_taxonomy()
 
 
 def tag_chunks(
-    chunks: list[dict], api_key: str, progress_file: Path | None = None
+    chunks: list[dict],
+    api_key: str = "",
+    progress_file: Path | None = None,
 ) -> list[dict]:
-    """Tag each chunk with topic, subtopic, and question_type via claude-haiku.
+    """Tag each chunk with topic, subtopic, and question_type deterministically.
 
-    Chunks whose topic is already set (non-empty, not "Unknown") are skipped so
-    re-runs after partial failures only call the API for unresolved chunks.
+    Only past_exam chunks receive a topic derived from the curriculum taxonomy.
+    answer_key chunks inherit the topic of their matching past_exam exercise
+    (same year / session / exercise_id), or keep their existing value if no
+    match is found.
 
-    If progress_file is provided, per-chunk progress is saved after each API call
-    so a mid-run crash can be resumed without re-tagging completed chunks.
+    api_key and progress_file are accepted for call-site compatibility but are
+    not used.
     """
-    client = anthropic.Anthropic(api_key=api_key)
+    # Build tags only from past_exam chunks (answer_key has no exercise header).
+    units = chunks_to_units(chunks)
+    tags = tag_all_units(units)
 
-    # Load saved progress: maps chunk key → {topic, subtopic, question_type}
-    progress: dict[str, dict] = {}
-    if progress_file is not None and progress_file.exists():
-        try:
-            progress = json.loads(progress_file.read_text())
-        except Exception:
-            progress = {}
+    # (year, session, exercise_id) → chapter_ids list
+    tag_map: dict[tuple[int, int, int], list[int]] = {
+        (t["year"], t["session"], t["exercise_id"]): t["chapter_ids"]
+        for t in tags
+    }
 
-    # Apply any cached tags from a previous interrupted run
+    tagged = 0
     for chunk in chunks:
-        key = _chunk_key(chunk)
-        if key in progress:
-            chunk.update(progress[key])
-
-    needs_tag = [c for c in chunks if not c.get("topic") or c["topic"] == "Unknown"]
-    already_done = len(chunks) - len(needs_tag)
-    if already_done:
-        print(
-            f"[ingestion] Tagging: {already_done}/{len(chunks)} already tagged, "
-            f"{len(needs_tag)} remaining"
-        )
-
-    for chunk in needs_tag:
-        try:
-            response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=128,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": TAG_PROMPT.format(content=chunk["content"][:800]),
-                    }
-                ],
+        key = (chunk["year"], chunk["session"], chunk["exercise_id"])
+        chapter_ids = tag_map.get(key)
+        if chapter_ids is not None:
+            in_scope = [cid for cid in chapter_ids if cid != 0]
+            # Use the first chapter title only — chunks.topic is VARCHAR(100) and
+            # multi-chapter detail is stored in question_tags.json, not here.
+            chunk["topic"] = (
+                _TAXONOMY.get(in_scope[0], f"Chapter {in_scope[0]}")
+                if in_scope
+                else "OTHER"
             )
-            raw = response.content[0].text
-            # Model sometimes wraps JSON in markdown fences — extract the object directly.
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            data = json.loads(match.group() if match else raw)
-            chunk["topic"] = str(data.get("topic", "Unknown"))
-            chunk["subtopic"] = str(data.get("subtopic", ""))
-            chunk["question_type"] = str(data.get("question_type", "calculation"))
-        except (json.JSONDecodeError, KeyError, IndexError, anthropic.APIError):
-            chunk["topic"] = "Unknown"
-            chunk["subtopic"] = ""
-            chunk["question_type"] = "calculation"
+            tagged += 1
+        else:
+            chunk.setdefault("topic", "Unknown")
 
-        # Persist progress after every chunk so a crash loses at most one API call
-        if progress_file is not None:
-            key = _chunk_key(chunk)
-            progress[key] = {
-                "topic": chunk["topic"],
-                "subtopic": chunk["subtopic"],
-                "question_type": chunk["question_type"],
-            }
-            progress_file.write_text(json.dumps(progress))
+        chunk.setdefault("subtopic", "")
+        chunk.setdefault("question_type", "calculation")
 
+    logger.info(
+        "Tagged %d/%d chunks deterministically (%d skipped — no matching past_exam unit)",
+        tagged,
+        len(chunks),
+        len(chunks) - tagged,
+    )
     return chunks

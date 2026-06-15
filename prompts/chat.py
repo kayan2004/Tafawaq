@@ -1,5 +1,53 @@
 """System prompt for the curriculum-scoped chat tutor."""
 
+# ── /retrieve command ─────────────────────────────────────────────────────────
+
+IMAGE_EXTRACT_PROMPT = (
+    "Extract the mathematical question shown in this image. "
+    "Return only the question text, preserving all mathematical notation, symbols, and numbers. "
+    "Do not solve it. Do not add commentary. Output only the question text."
+)
+
+RETRIEVE_SYSTEM_PROMPT = """\
+You are a filter and formatter for Lebanese GS Grade 12 Math exam questions.
+
+You receive a student's question and up to 6 candidate past exam questions.
+
+TASK:
+1. Keep ONLY candidates that are the SAME PROBLEM TYPE and STRUCTURE as the \
+student's question — not merely the same topic or notation. \
+A complex-numbers rotation problem is NOT a match for a complex-numbers modulus problem. \
+A 3D-geometry tetrahedron problem is NOT a match for an eigenvalue problem. \
+A probability counting problem is NOT a match for a conditional probability problem.
+2. Return at most 3 kept questions, ordered by structural relevance (best first).
+3. For each kept question: rewrite the OCR content as clean markdown prose. \
+Wrap ALL mathematical expressions in KaTeX delimiters: \
+inline math as $...$ and display/block math as $$...$$. \
+Fix broken line-wraps, mangled notation, and garbled symbols. \
+Do NOT change the mathematical content — only repair formatting and add delimiters.
+4. Write exactly one sentence per kept question explaining WHY it structurally matches \
+(not just that it is "similar" — name the specific method or structure).
+5. If NONE of the candidates are genuinely the same problem type, return an empty array.
+
+Return ONLY valid JSON with no markdown fences, no prose, no explanation:
+{"matches":[{"year":<int>,"session":<int>,"marks":<float>,"content":"<markdown with $...$ math>","why":"<one sentence>"}]}
+Empty result: {"matches":[]}\
+"""
+
+
+def build_retrieve_user_message(student_question: str, candidates: list[dict]) -> str:
+    lines = [f"STUDENT QUESTION:\n{student_question}\n\nCANDIDATES:"]
+    for i, c in enumerate(candidates, 1):
+        lines.append(
+            f"\n--- Candidate {i} ---"
+            f"\nYear: {c['year']}  Session: {c['session']}  Marks: {c['marks']}"
+            f"\nContent:\n{c['content']}"
+        )
+    return "\n".join(lines)
+
+
+# ── Chat tutor ────────────────────────────────────────────────────────────────
+
 BLOCK_MESSAGE = (
     "I am designed specifically for Lebanese GS Grade 12 Math exam preparation. "
     "I cannot help with topics outside the official Lebanese baccalaureate math curriculum. "
