@@ -11,15 +11,15 @@ from app.repositories.orm import UserORM
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    pass
+    name: str | None = None
 
 
 class UserCreate(schemas.BaseUserCreate):
-    pass
+    name: str | None = None
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    pass
+    name: str | None = None
 
 
 # Routers provided by fastapi-users

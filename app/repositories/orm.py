@@ -42,6 +42,7 @@ class UserORM(SQLAlchemyBaseUserTableUUID, Base):
     is_active, is_superuser, is_verified columns."""
     __tablename__ = "users"
 
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

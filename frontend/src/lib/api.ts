@@ -33,11 +33,11 @@ export async function login(email: string, password: string): Promise<string> {
   return data.access_token as string;
 }
 
-export async function register(email: string, password: string): Promise<void> {
+export async function register(email: string, password: string, name?: string): Promise<void> {
   const res = await fetch("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, name: name || null }),
   });
   if (!res.ok) {
     let detail = "Registration failed";
@@ -51,13 +51,13 @@ export async function register(email: string, password: string): Promise<void> {
   }
 }
 
-export async function getMe(token: string): Promise<{ is_superuser: boolean }> {
+export async function getMe(token: string): Promise<{ is_superuser: boolean; name: string | null }> {
   const res = await fetch("/auth/me", {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   const data = await res.json();
-  return { is_superuser: data.is_superuser as boolean };
+  return { is_superuser: data.is_superuser as boolean, name: data.name as string | null };
 }
 
 export type Language = "en" | "fr";
@@ -371,9 +371,15 @@ export async function startChatStream(
   token: string,
   signal: AbortSignal,
   attachedSessionId?: string | null,
+  imageBase64?: string | null,
+  imageMimeType?: string | null,
 ): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const body: Record<string, unknown> = { message };
   if (attachedSessionId) body.attached_session_id = attachedSessionId;
+  if (imageBase64 && imageMimeType) {
+    body.image_base64 = imageBase64;
+    body.image_media_type = imageMimeType;
+  }
   const res = await fetch("/chat", {
     method: "POST",
     headers: {
@@ -409,6 +415,25 @@ export async function getChatHistory(token: string): Promise<ChatHistoryMessage[
   if (!res.ok) return [];
   const data = await res.json();
   return Array.isArray(data) ? data : [];
+}
+
+// ── Topics ────────────────────────────────────────────────────────────────────
+
+export interface TopicStat {
+  topic: string;
+  appearances: number;
+  last_seen_year: number;
+  last_seen_session: number;
+  frequency_tier: "high" | "medium" | "low";
+}
+
+export async function getTopicStats(token: string): Promise<TopicStat[]> {
+  const res = await fetch("/topics/stats", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.topics) ? (data.topics as TopicStat[]) : [];
 }
 
 /** POST /tts — synthesize spoken-English text, returns audio/mpeg blob. */

@@ -9,6 +9,7 @@ interface Props {
 
 export function Login({ onLogin }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +22,7 @@ export function Login({ onLogin }: Props) {
     setLoading(true);
     try {
       if (mode === "register") {
-        await register(email, password);
+        await register(email, password, name.trim() || undefined);
       }
       const token = await login(email, password);
       setToken(token);
@@ -35,6 +36,7 @@ export function Login({ onLogin }: Props) {
 
   const switchMode = () => {
     setMode((m) => (m === "login" ? "register" : "login"));
+    setName("");
     setError("");
   };
 
@@ -50,6 +52,20 @@ export function Login({ onLogin }: Props) {
         </div>
 
         <form onSubmit={submit} className="login-form">
+          {mode === "register" && (
+            <label className="login-label">
+              Full name
+              <input
+                type="text"
+                className="login-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Layla Haddad"
+                autoComplete="name"
+                autoFocus
+              />
+            </label>
+          )}
           <label className="login-label">
             Email
             <input
@@ -60,7 +76,7 @@ export function Login({ onLogin }: Props) {
               placeholder="you@example.com"
               autoComplete="email"
               required
-              autoFocus
+              autoFocus={mode === "login"}
             />
           </label>
           <label className="login-label">

@@ -11,6 +11,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Exam } from "./pages/Exam";
 import { Login } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
+import { Topics } from "./pages/Topics";
 import { getToken, clearToken, getMe, getUserDetails } from "./lib/api";
 import type { UserDetails } from "./lib/api";
 import type { PageId, PageProps } from "./types";
@@ -24,24 +25,21 @@ interface NavEntry {
 }
 
 const NAV: NavEntry[] = [
-  { id: "dashboard", label: "Dashboard",      icon: "dashboard", tab: true,  disabled: false },
-  { id: "exam",      label: "Exams",          icon: "exam",      tab: true,  disabled: false },
-  { id: "past",      label: "Past Questions", icon: "past",                  disabled: true  },
-  { id: "topics",    label: "Topics",         icon: "topics",    tab: true,  disabled: true  },
-  { id: "chat",      label: "Chat",           icon: "chat",      tab: true,  disabled: false },
-  { id: "books",     label: "Books",          icon: "book",                  disabled: false },
+  { id: "dashboard", label: "Dashboard", icon: "dashboard", tab: true,  disabled: false },
+  { id: "exam",      label: "Exams",     icon: "exam",      tab: true,  disabled: false },
+  { id: "topics",    label: "Topics",    icon: "topics",    tab: true,  disabled: false },
+  { id: "chat",      label: "Chat",      icon: "chat",      tab: true,  disabled: false },
+  { id: "books",     label: "Books",     icon: "book",                  disabled: false },
 ];
 
-const VALID_PAGES: PageId[] = ["dashboard", "exam", "past", "topics", "chat", "results", "books"];
+const VALID_PAGES: PageId[] = ["dashboard", "exam", "topics", "chat", "results", "books"];
 
 function isPageId(value: string): value is PageId {
   return (VALID_PAGES as string[]).includes(value);
 }
 
-const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "books">, { title: string; icon: IconName; blurb: string }> = {
-  past:    { title: "Past Questions",   icon: "past",    blurb: "Retrieve real GS exam questions by topic from the archive. Coming soon." },
-  topics:  { title: "Topics",           icon: "topics",  blurb: "Frequency analytics across the last 10 GS sessions. Coming soon." },
-  results: { title: "Results",          icon: "scale",   blurb: "Dual-evaluator grading with discrepancy highlighting. Coming soon." },
+const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "books" | "topics">, { title: string; icon: IconName; blurb: string }> = {
+  results: { title: "Results", icon: "scale", blurb: "Dual-evaluator grading with discrepancy highlighting. Coming soon." },
 };
 
 function renderPage(
@@ -58,6 +56,7 @@ function renderPage(
   if (page === "chat") return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} isDark={isDark} />;
   if (page === "exam") return <Exam triggerGenerate={triggerGenerate} onGenerateConsumed={onGenerateConsumed} />;
   if (page === "books") return <Books />;
+  if (page === "topics") return <Topics />;
   const p = PLACEHOLDERS[page as keyof typeof PLACEHOLDERS];
   if (!p) return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} />;
   return <ComingSoon title={p.title} icon={p.icon} blurb={p.blurb} />;
@@ -100,6 +99,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try { return (localStorage.getItem("theme") as "dark" | "light") || "dark"; } catch { return "dark"; }
   });
@@ -107,7 +107,7 @@ export default function App() {
   useEffect(() => {
     const t = getToken();
     if (t) {
-      getMe(t).then((me) => setIsAdmin(me.is_superuser)).catch(() => {});
+      getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); }).catch(() => {});
       getUserDetails(t).then((d) => { if (d === null) setNeedsOnboarding(true); }).catch(() => {});
     }
   }, []);
@@ -125,10 +125,10 @@ export default function App() {
   const handleLogin = (t: string, userEmail: string) => {
     setToken(t);
     setEmail(userEmail);
-    getMe(t).then((me) => setIsAdmin(me.is_superuser)).catch(() => {});
+    getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); }).catch(() => {});
     getUserDetails(t).then((d) => { if (d === null) setNeedsOnboarding(true); }).catch(() => {});
   };
-  const handleLogout = () => { clearToken(); setToken(null); setIsAdmin(false); setNeedsOnboarding(false); setEmail(""); };
+  const handleLogout = () => { clearToken(); setToken(null); setIsAdmin(false); setNeedsOnboarding(false); setEmail(""); setUserName(null); };
   const handleOnboardingComplete = (_details: UserDetails) => { setNeedsOnboarding(false); };
 
   const [page, setPage] = useState<PageId>(() => {
@@ -225,9 +225,13 @@ export default function App() {
         </div>
 
         <div className="user-card">
-          <div className="avatar">{STUDENT.initials}</div>
+          <div className="avatar">
+            {(userName || email || "?")
+              .split(" ").filter(Boolean).slice(0, 2)
+              .map((w) => w[0].toUpperCase()).join("") || "?"}
+          </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="user-name">{STUDENT.name}</div>
+            <div className="user-name">{userName || email}</div>
             <div className="user-meta">{STUDENT.grade}</div>
           </div>
           <button className="logout-btn" onClick={handleLogout} title="Sign out">
