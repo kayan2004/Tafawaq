@@ -11,7 +11,7 @@ Usage:
 
     # Directly from PDF (book 2, offset pages by 300 to avoid DB conflicts):
     uv run python -m ingestion.book_ingest \
-        --pdf "Building up Mathematics Calculus and Statistics - Pages 1-251.PDF" \
+        --pdf "textbook/source_pdfs/Building up Mathematics Calculus and Statistics - Pages 1-251.PDF" \
         --chapter "Building Up Mathematics — Calculus and Statistics" \
         --page-offset 300 \
         --save-md textbook/building_up_mathematics_2.md
