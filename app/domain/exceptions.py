@@ -37,6 +37,10 @@ class TextbookPdfMissing(LebaneseCoachError):
     """Textbook PDF not found in object storage."""
 
 
+class ConversationNotFound(LebaneseCoachError):
+    """Chat session does not exist or does not belong to the requesting user."""
+
+
 class OfficialExamNotFound(LebaneseCoachError):
     """Official exam record does not exist."""
 

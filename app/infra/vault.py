@@ -24,6 +24,11 @@ class AppSecrets(BaseModel):
     minio_secret_key: str
     jwt_secret: str
     elevenlabs_api_key: str
+    # Defaults let the app boot against a stale Vault entry that predates these
+    # keys; resend_api_key empty is the expected "email disabled" dev state.
+    resend_api_key: str = ""
+    reset_password_from_email: str = "onboarding@resend.dev"
+    reset_password_token_secret: str = ""
 
 
 def resolve_secrets() -> AppSecrets:

@@ -89,11 +89,11 @@ async def _build_exam_context(
 
 
 async def clear_chat(
-    user_id: UUID,
+    conversation_id: UUID,
     db_session: AsyncSession,
     redis: Redis,
 ) -> None:
-    conv_id = await message_repo.clear_conversation(db_session, user_id, _SUBJECT)
+    conv_id = await message_repo.clear_conversation(db_session, conversation_id)
     await db_session.commit()
     if conv_id is not None:
         await guardrails_service.reset_counter(redis, str(conv_id))
@@ -101,6 +101,7 @@ async def clear_chat(
 
 async def handle_turn(
     message: str,
+    conversation_id: UUID,
     user_id: UUID,
     secrets: AppSecrets,
     db_session: AsyncSession,
@@ -117,10 +118,7 @@ async def handle_turn(
     conn = await asyncpg.connect(_db_url)
     await pgvector.asyncpg.register_vector(conn)
     try:
-        conv = await message_repo.get_or_create_conversation(db_session, user_id, _SUBJECT)
-        await db_session.commit()
-
-        await message_repo.add_message(db_session, conv.id, MessageRole.user, message)
+        await message_repo.add_message(db_session, conversation_id, MessageRole.user, message)
         await db_session.commit()
 
         if message == "/retrieve" or message.startswith(_RETRIEVE_PREFIX):
@@ -188,17 +186,17 @@ async def handle_turn(
             yield f"data: {payload}\n\n"
             yield f"data: {json.dumps({'event': 'done'})}\n\n"
             yield "data: [DONE]\n\n"
-            await message_repo.add_message(db_session, conv.id, MessageRole.assistant, payload)
+            await message_repo.add_message(db_session, conversation_id, MessageRole.assistant, payload)
             await db_session.commit()
             return
 
         off_topic = await guardrails_service.classify_message(message)
-        counter = await guardrails_service.get_counter(redis, str(conv.id))
+        counter = await guardrails_service.get_counter(redis, str(conversation_id))
 
         if off_topic:
-            counter = await guardrails_service.increment_counter(redis, str(conv.id))
+            counter = await guardrails_service.increment_counter(redis, str(conversation_id))
         else:
-            await guardrails_service.reset_counter(redis, str(conv.id))
+            await guardrails_service.reset_counter(redis, str(conversation_id))
             counter = 0
 
         tier = guardrails_service.get_guardrail_tier(counter)
@@ -208,7 +206,7 @@ async def handle_turn(
             yield "data: [DONE]\n\n"
             return
 
-        history = await message_repo.get_messages(db_session, conv.id, limit=20)
+        history = await message_repo.get_messages(db_session, conversation_id, limit=20)
         claude_messages = [
             {"role": msg.role.value, "content": msg.content}
             for msg in history
@@ -342,7 +340,7 @@ async def handle_turn(
         yield "data: [DONE]\n\n"
 
         await message_repo.add_message(
-            db_session, conv.id, MessageRole.assistant, full_response
+            db_session, conversation_id, MessageRole.assistant, full_response
         )
         await db_session.commit()
     finally:

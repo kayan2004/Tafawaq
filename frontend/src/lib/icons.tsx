@@ -41,7 +41,7 @@ export type IconName =
   | "dashboard" | "exam" | "topics" | "chat" | "history"
   | "timer" | "check" | "arrow" | "chevron" | "send" | "spark"
   | "plus" | "alert" | "scale" | "target" | "flame" | "book" | "eye" | "eye-off"
-  | "speaker" | "image";
+  | "speaker" | "image" | "pencil";
 
 export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   dashboard: (p) => <Ico {...p} paths={<><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></>} />,
@@ -65,4 +65,5 @@ export const Icons: Record<IconName, (p: IconProps) => ReactNode> = {
   "eye-off": (p) => <Ico {...p} paths={<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20"/>} />,
   speaker: (p) => <Ico {...p} paths={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></>} />,
   image: (p) => <Ico {...p} paths={<><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></>} />,
+  pencil: (p) => <Ico {...p} paths={<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></>} />,
 };

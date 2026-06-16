@@ -2,16 +2,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Icons } from "../lib/icons";
 import { RichMath } from "../lib/math";
-import { SubjectSelector } from "../lib/ui";
 import {
   clearToken,
   getChatHistory,
+  getChatSessions,
+  createChatSession,
+  renameChatSession,
   getExamHistory,
   getToken,
   requestTts,
   startChatStream,
 } from "../lib/api";
-import type { ExamSessionSummary } from "../lib/api";
+import type { ChatSession, ExamSessionSummary } from "../lib/api";
+import { SessionPicker } from "../components/SessionPicker";
 import { messageToSpeech } from "../lib/speechify";
 // @ts-ignore — JSX component, no type declarations
 import TafawwaqMascot from "../../TafawwaqMascot";
@@ -51,6 +54,10 @@ const nextId = () => ++_seq;
 const NAILED_RE = /\b(1[4-9]|20)\s*\/\s*20\b/;
 
 export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Props) {
+  // Session management
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
+
   const [messages, setMessages] = useState<Msg[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [playingId, setPlayingId] = useState<number | null>(null);
@@ -134,11 +141,29 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     };
   }, []);
 
-  // Load persisted history on first mount
+  // Load sessions on mount; auto-create a default if none exist
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    getChatHistory(token).then((history) => {
+    getChatSessions(token).then(async (fetched) => {
+      if (fetched.length === 0) {
+        const created = await createChatSession(token, "math_gs12");
+        setSessions([created]);
+        setActiveSession(created);
+      } else {
+        setSessions(fetched);
+        setActiveSession(fetched[0]);
+      }
+    });
+  }, []);
+
+  // Load history whenever the active session changes
+  useEffect(() => {
+    if (!activeSession) return;
+    const token = getToken();
+    if (!token) return;
+    setMessages([]);
+    getChatHistory(token, activeSession.id).then((history) => {
       if (history.length === 0) return;
       setMessages(
         history.map((m) => {
@@ -153,7 +178,28 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
         })
       );
     });
-  }, []);
+  }, [activeSession?.id]);
+
+  const handleSessionSelect = (s: ChatSession) => {
+    if (s.id === activeSession?.id) return;
+    setActiveSession(s);
+  };
+
+  const handleSessionCreate = async (subject: string, title?: string) => {
+    const token = getToken();
+    if (!token) return;
+    const created = await createChatSession(token, subject, title);
+    setSessions((prev) => [created, ...prev]);
+    setActiveSession(created);
+  };
+
+  const handleSessionRename = async (sessionId: string, title: string) => {
+    const token = getToken();
+    if (!token) return;
+    const updated = await renameChatSession(token, sessionId, title);
+    setSessions((prev) => prev.map((s) => (s.id === sessionId ? updated : s)));
+    if (activeSession?.id === sessionId) setActiveSession(updated);
+  };
 
   // Close picker on outside click
   useEffect(() => {
@@ -288,8 +334,10 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: label } : m)));
     };
 
+    if (!activeSession) return;
+
     try {
-      const reader = await startChatStream(text, token, abort.signal, attachedSession?.session_id, imageBase64 ?? null, imageMimeType ?? null);
+      const reader = await startChatStream(text, token, abort.signal, activeSession.id, attachedSession?.session_id, imageBase64 ?? null, imageMimeType ?? null);
       clearImage();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -475,13 +523,14 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
             {isAdmin && <span className="chat-admin-badge">admin</span>}
           </div>
         </div>
-        <div className="chat-mascot-header" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <SubjectSelector />
-          <TafawwaqMascot
-            state={mascotState}
-            mouthOpen={mouthOpen}
-            isDark={isDark}
-            size={72}
+        <div className="chat-mascot-header">
+          <SessionPicker
+            sessions={sessions}
+            activeSession={activeSession}
+            onSelect={handleSessionSelect}
+            onCreate={handleSessionCreate}
+            onRename={handleSessionRename}
+            disabled={isStreaming}
           />
         </div>
       </div>
@@ -490,10 +539,14 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
       <div className="chat-messages">
         {messages.length === 0 && (
           <div className="chat-empty">
-          
-            <p className="chat-empty-title">Ask AI Anything</p>
-            
-            
+            <TafawwaqMascot
+              state={mascotState}
+              mouthOpen={mouthOpen}
+              isDark={isDark}
+              size={120}
+            />
+            <p className="chat-empty-line1">مرحبا — I'm Noor, your Tafawwaq tutor.</p>
+            <p className="chat-empty-line2">What are we working on?</p>
           </div>
         )}
 
@@ -574,6 +627,18 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
 
         <div ref={bottomRef} />
       </div>
+
+      {/* ── Corner mascot (visible while conversation is running) ── */}
+      {messages.length > 0 && (
+        <div className="chat-mascot-corner">
+          <TafawwaqMascot
+            state={mascotState}
+            mouthOpen={mouthOpen}
+            isDark={isDark}
+            size={64}
+          />
+        </div>
+      )}
 
       {/* ── Exam picker ── */}
       {pickerOpen && (

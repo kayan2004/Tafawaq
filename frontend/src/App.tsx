@@ -9,12 +9,15 @@ import { Chat } from "./pages/Chat";
 import { ComingSoon } from "./pages/ComingSoon";
 import { Dashboard } from "./pages/Dashboard";
 import { Exam } from "./pages/Exam";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Topics } from "./pages/Topics";
 import { getToken, clearToken, getMe, getUserDetails } from "./lib/api";
-import type { UserDetails } from "./lib/api";
+import type { Me, UserDetails } from "./lib/api";
 import type { PageId, PageProps } from "./types";
+import { EditProfileModal } from "./components/EditProfileModal";
 
 interface NavEntry {
   id: PageId;
@@ -36,6 +39,17 @@ const VALID_PAGES: PageId[] = ["dashboard", "exam", "topics", "chat", "results",
 
 function isPageId(value: string): value is PageId {
   return (VALID_PAGES as string[]).includes(value);
+}
+
+/* Reset-password links arrive as #reset-password?token=... — read it before
+   any hash-sync effect can run, since those effects would otherwise stomp
+   the query string the moment the logged-out page-state initializer settles
+   on "dashboard". */
+function parseResetToken(): string | null {
+  const raw = (window.location.hash || "").replace("#", "");
+  const [hashPage, hashQuery] = raw.split("?");
+  if (hashPage !== "reset-password") return null;
+  return new URLSearchParams(hashQuery || "").get("token");
 }
 
 const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "books" | "topics">, { title: string; icon: IconName; blurb: string }> = {
@@ -100,6 +114,9 @@ export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [email, setEmail] = useState("");
   const [userName, setUserName] = useState<string | null>(null);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(() => parseResetToken());
+  const [authView, setAuthView] = useState<"login" | "forgot" | "reset">(() => (parseResetToken() ? "reset" : "login"));
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try { return (localStorage.getItem("theme") as "dark" | "light") || "dark"; } catch { return "dark"; }
   });
@@ -107,7 +124,7 @@ export default function App() {
   useEffect(() => {
     const t = getToken();
     if (t) {
-      getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); }).catch(() => {});
+      getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); setEmail(me.email); }).catch(() => {});
       getUserDetails(t).then((d) => { if (d === null) setNeedsOnboarding(true); }).catch(() => {});
     }
   }, []);
@@ -125,10 +142,11 @@ export default function App() {
   const handleLogin = (t: string, userEmail: string) => {
     setToken(t);
     setEmail(userEmail);
-    getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); }).catch(() => {});
+    getMe(t).then((me) => { setIsAdmin(me.is_superuser); setUserName(me.name); setEmail(me.email); }).catch(() => {});
     getUserDetails(t).then((d) => { if (d === null) setNeedsOnboarding(true); }).catch(() => {});
   };
   const handleLogout = () => { clearToken(); setToken(null); setIsAdmin(false); setNeedsOnboarding(false); setEmail(""); setUserName(null); };
+  const handleProfileSaved = (me: Me) => { setIsAdmin(me.is_superuser); setUserName(me.name); setEmail(me.email); };
   const handleOnboardingComplete = (_details: UserDetails) => { setNeedsOnboarding(false); };
 
   const [page, setPage] = useState<PageId>(() => {
@@ -149,10 +167,13 @@ export default function App() {
   const handleGenerateConsumed = () => setPendingGenerate(false);
 
   useEffect(() => {
+    // Gated on token: while logged out, the URL hash may carry a
+    // #reset-password?token=... link that this effect must not overwrite.
+    if (!token) return;
     if ((window.location.hash || "").replace("#", "") !== page) {
       window.location.hash = page;
     }
-  }, [page]);
+  }, [page, token]);
 
   useEffect(() => {
     const onHash = () => {
@@ -163,7 +184,24 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  if (!token) return <Login onLogin={handleLogin} />;
+  if (!token) {
+    if (authView === "forgot") {
+      return <ForgotPassword onBackToLogin={() => setAuthView("login")} />;
+    }
+    if (authView === "reset" && resetToken) {
+      return (
+        <ResetPassword
+          token={resetToken}
+          onSuccess={() => {
+            window.location.hash = "";
+            setResetToken(null);
+            setAuthView("login");
+          }}
+        />
+      );
+    }
+    return <Login onLogin={handleLogin} onForgotPassword={() => setAuthView("forgot")} />;
+  }
 
   if (needsOnboarding) {
     return (
@@ -225,20 +263,29 @@ export default function App() {
         </div>
 
         <div className="user-card">
-          <div className="avatar">
-            {(userName || email || "?")
-              .split(" ").filter(Boolean).slice(0, 2)
-              .map((w) => w[0].toUpperCase()).join("") || "?"}
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <button
+            className="user-name-btn"
+            style={{ minWidth: 0, flex: 1 }}
+            onClick={() => setShowProfileEdit(true)}
+            title="Edit profile"
+          >
             <div className="user-name">{userName || email}</div>
             <div className="user-meta">{STUDENT.grade}</div>
-          </div>
+          </button>
           <button className="logout-btn" onClick={handleLogout} title="Sign out">
             <PowerIcon />
           </button>
         </div>
       </aside>
+
+      {showProfileEdit && token && (
+        <EditProfileModal
+          token={token}
+          me={{ is_superuser: isAdmin, name: userName, email }}
+          onClose={() => setShowProfileEdit(false)}
+          onSaved={handleProfileSaved}
+        />
+      )}
 
       <main className={`main ${isChat ? "main-chat" : ""} ${isBooks ? "main-books" : ""}`}>
         {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, pendingGenerate, handleGenerateConsumed, theme === "dark")}

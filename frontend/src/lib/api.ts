@@ -51,13 +51,86 @@ export async function register(email: string, password: string, name?: string): 
   }
 }
 
-export async function getMe(token: string): Promise<{ is_superuser: boolean; name: string | null }> {
+export async function forgotPassword(email: string): Promise<void> {
+  await fetch("/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  // Always resolves — the backend returns 202 regardless of whether the
+  // email is registered, so the UI never reveals account existence.
+}
+
+export async function resetPassword(token: string, password: string): Promise<void> {
+  const res = await fetch("/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) {
+    let detail = "Failed to reset password";
+    try {
+      const err = await res.json();
+      const d = err.detail;
+      if (typeof d === "string") detail = d === "RESET_PASSWORD_BAD_TOKEN" ? "This reset link is invalid or has expired." : d;
+      else if (d && typeof d.reason === "string") detail = d.reason;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+}
+
+export async function changePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const res = await fetch("/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    let detail = "Failed to change password";
+    try {
+      const err = await res.json();
+      if (typeof err.detail === "string") detail = err.detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+}
+
+export interface Me {
+  is_superuser: boolean;
+  name: string | null;
+  email: string;
+}
+
+export async function getMe(token: string): Promise<Me> {
   const res = await fetch("/auth/me", {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   const data = await res.json();
-  return { is_superuser: data.is_superuser as boolean, name: data.name as string | null };
+  return { is_superuser: data.is_superuser as boolean, name: data.name as string | null, email: data.email as string };
+}
+
+export async function updateMe(token: string, body: { name?: string | null }): Promise<Me> {
+  const res = await fetch("/auth/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = "Failed to update profile";
+    try {
+      const e = await res.json();
+      if (Array.isArray(e.detail)) detail = e.detail.map((d: { msg: string }) => d.msg).join(", ");
+      else if (typeof e.detail === "string") detail = e.detail;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  const data = await res.json();
+  return { is_superuser: data.is_superuser as boolean, name: data.name as string | null, email: data.email as string };
 }
 
 export type Language = "en" | "fr";
@@ -365,16 +438,64 @@ export async function getTextbookPdfBlobUrl(token: string, filename: string): Pr
   return URL.createObjectURL(blob);
 }
 
+// ── Chat sessions ─────────────────────────────────────────────────────────────
+
+export interface ChatSession {
+  id: string;
+  subject: string;
+  title: string | null;
+  created_at: string;
+  last_message_at: string | null;
+}
+
+export async function getChatSessions(token: string): Promise<ChatSession[]> {
+  const res = await fetch("/chat/sessions", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createChatSession(
+  token: string,
+  subject: string,
+  title?: string,
+): Promise<ChatSession> {
+  const res = await fetch("/chat/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ subject, title: title || null }),
+  });
+  if (!res.ok) throw new Error(`Failed to create session (${res.status})`);
+  return res.json();
+}
+
+export async function renameChatSession(
+  token: string,
+  conversationId: string,
+  title: string,
+): Promise<ChatSession> {
+  const res = await fetch(`/chat/sessions/${conversationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error(`Failed to rename session (${res.status})`);
+  return res.json();
+}
+
 /** Opens a POST /chat SSE stream. Caller owns the reader. */
 export async function startChatStream(
   message: string,
   token: string,
   signal: AbortSignal,
+  conversationId: string,
   attachedSessionId?: string | null,
   imageBase64?: string | null,
   imageMimeType?: string | null,
 ): Promise<ReadableStreamDefaultReader<Uint8Array>> {
-  const body: Record<string, unknown> = { message };
+  const body: Record<string, unknown> = { message, conversation_id: conversationId };
   if (attachedSessionId) body.attached_session_id = attachedSessionId;
   if (imageBase64 && imageMimeType) {
     body.image_base64 = imageBase64;
@@ -396,10 +517,11 @@ export async function startChatStream(
   return res.body!.getReader();
 }
 
-export async function clearChatHistory(token: string): Promise<void> {
+export async function clearChatHistory(token: string, conversationId: string): Promise<void> {
   await fetch("/chat/clear", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ conversation_id: conversationId }),
   });
 }
 
@@ -408,8 +530,11 @@ export interface ChatHistoryMessage {
   content: string;
 }
 
-export async function getChatHistory(token: string): Promise<ChatHistoryMessage[]> {
-  const res = await fetch("/chat/history", {
+export async function getChatHistory(
+  token: string,
+  conversationId: string,
+): Promise<ChatHistoryMessage[]> {
+  const res = await fetch(`/chat/history?conversation_id=${encodeURIComponent(conversationId)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return [];

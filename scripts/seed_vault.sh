@@ -18,6 +18,9 @@ vault kv put \
   minio_access_key="${MINIO_ACCESS_KEY:-minioadmin}" \
   minio_secret_key="${MINIO_SECRET_KEY:-minioadmin}" \
   jwt_secret="${JWT_SECRET:-dev-jwt-secret-change-in-prod}" \
-  elevenlabs_api_key="${ELEVEN_LABS_API_KEY:-${ELEVENLABS_API_KEY:-placeholder-set-real-key}}"
+  elevenlabs_api_key="${ELEVEN_LABS_API_KEY:-${ELEVENLABS_API_KEY:-placeholder-set-real-key}}" \
+  resend_api_key="${RESEND_API_KEY:-}" \
+  reset_password_from_email="${RESET_PASSWORD_FROM_EMAIL:-onboarding@resend.dev}" \
+  reset_password_token_secret="${RESET_PASSWORD_TOKEN_SECRET:-dev-reset-password-secret-change-in-prod}"
 
 echo "[vault-seed] Secrets written successfully."

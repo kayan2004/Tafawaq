@@ -66,6 +66,16 @@ class OfficialExam(BaseModel):
     created_at: datetime
 
 
+# ── Chat sessions (named conversation threads) ────────────────────────────────
+
+class ChatSession(BaseModel):
+    id: UUID
+    subject: str
+    title: str | None
+    created_at: datetime
+    last_message_at: datetime | None
+
+
 # ── Session ───────────────────────────────────────────────────────────────────
 
 class ExamSession(BaseModel):

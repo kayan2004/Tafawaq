@@ -5,9 +5,10 @@ import { Icons } from "../lib/icons";
 
 interface Props {
   onLogin: (token: string, email: string) => void;
+  onForgotPassword: () => void;
 }
 
-export function Login({ onLogin }: Props) {
+export function Login({ onLogin, onForgotPassword }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -101,6 +102,14 @@ export function Login({ onLogin }: Props) {
               </button>
             </div>
           </label>
+
+          {mode === "login" && (
+            <p className="login-toggle" style={{ margin: "-4px 0 0", textAlign: "right" }}>
+              <button type="button" className="link-btn" onClick={onForgotPassword}>
+                Forgot password?
+              </button>
+            </p>
+          )}
 
           {error && (
             <p className="login-error" role="alert">

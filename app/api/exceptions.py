@@ -10,6 +10,7 @@ from app.domain.exceptions import (
     ActiveSessionExists,
     AIServiceUnavailable,
     AnswerKeyNotFound,
+    ConversationNotFound,
     EmbeddingServiceUnavailable,
     EvaluatorResponseError,
     ExamNotFound,
@@ -39,6 +40,7 @@ def _error(request: Request, status: int, message: str) -> JSONResponse:
     )
 
 
+@app.exception_handler(ConversationNotFound)
 @app.exception_handler(ExamNotFound)
 @app.exception_handler(AnswerKeyNotFound)
 @app.exception_handler(TopicNotFound)

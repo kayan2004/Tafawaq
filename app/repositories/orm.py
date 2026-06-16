@@ -51,15 +51,13 @@ class UserORM(SQLAlchemyBaseUserTableUUID, Base):
 
 class ConversationORM(Base):
     __tablename__ = "conversations"
-    __table_args__ = (
-        UniqueConstraint("user_id", "subject", name="uq_conversations_user_subject"),
-    )
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     # NULL for exam-session conversations; named subject for chat (e.g. "math_gs12").
-    # PostgreSQL UNIQUE allows multiple NULLs, so exam sessions don't conflict.
     subject: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # User-set title; NULL means auto-name by date on the frontend.
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

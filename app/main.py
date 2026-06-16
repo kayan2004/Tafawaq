@@ -73,11 +73,19 @@ from app.api.routers import textbook as _textbook  # noqa: E402, F401
 from app.api.routers import topics as _topics  # noqa: E402, F401
 from app.api.routers import tts as _tts  # noqa: E402, F401
 from app.api.routers import user_details as _user_details  # noqa: E402, F401
-from app.api.routers.auth import auth_router, register_router, users_router  # noqa: E402
+from app.api.routers.auth import (  # noqa: E402
+    auth_router,
+    change_password_router,
+    register_router,
+    reset_password_router,
+    users_router,
+)
 
 app.include_router(_health.router)
 app.include_router(auth_router, prefix="/auth/jwt", tags=["auth"])
 app.include_router(register_router, prefix="/auth", tags=["auth"])
+app.include_router(reset_password_router, prefix="/auth", tags=["auth"])
+app.include_router(change_password_router, prefix="/auth", tags=["auth"])
 app.include_router(users_router, prefix="/auth", tags=["auth"])
 app.include_router(_user_details.router)
 app.include_router(_questions.router)

@@ -673,10 +673,9 @@
 /* ============ CHAT ============ */
 .main-chat { height: 100dvh; overflow: hidden; }
 
-.chat-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.chat-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; position: relative; }
 
 .chat-mascot-header {
-  pointer-events: none;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -710,18 +709,22 @@
 .chat-empty {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  text-align: center; padding: 48px 24px; gap: 10px;
+  text-align: center; padding: 48px 24px; gap: 18px;
 }
-.chat-empty-mark {
-  width: 64px; height: 64px; border-radius: var(--r-lg);
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  color: var(--accent);
-  display: grid; place-items: center;
-  margin-bottom: 8px;
+.chat-empty-line1 {
+  font: 600 18px/1.4 var(--font-display);
+  letter-spacing: -0.01em; margin: 0; color: var(--ink);
 }
-.chat-empty-title { font: var(--text-section-title); letter-spacing: var(--tracking-tight); margin: 0; font-size: 20px; }
-.chat-empty-hint { font-size: 14px; color: var(--muted); margin: 0; }
+.chat-empty-line2 { font-size: 14px; color: var(--muted); margin: 0; }
+
+/* Corner mascot — absolute within .chat-wrap, top-left of the messages area */
+.chat-mascot-corner {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  z-index: 10;
+  pointer-events: none;
+}
 .chat-suggestions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; width: 100%; max-width: 520px; }
 .chat-suggestion {
   padding: 11px 16px;
@@ -1336,3 +1339,146 @@
   font-size: 14px; line-height: 1;
 }
 .slash-chip-x:hover { background: var(--blue-soft-2); color: var(--accent-ink); }
+
+/* ============ SESSION PICKER ============ */
+.sess-wrap { position: relative; }
+
+.sess-trigger {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 13px; color: var(--ink-2);
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+  max-width: 260px;
+}
+.sess-trigger:hover,
+.sess-trigger.is-open { background: var(--surface-2); border-color: var(--accent); color: var(--ink); }
+.sess-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+.sess-trigger-ico { color: var(--accent); flex-shrink: 0; }
+.sess-trigger-label {
+  font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+}
+.sess-trigger-chev {
+  color: var(--muted); flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.sess-trigger.is-open .sess-trigger-chev { transform: rotate(90deg); }
+
+.sess-panel {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  width: 300px; z-index: 200;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg); box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sess-panel { animation: slashIn 0.14s ease; }
+}
+
+.sess-panel-head {
+  padding: 11px 14px 8px;
+  font: 600 11px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--line); flex-shrink: 0;
+}
+
+.sess-list {
+  flex: 1; overflow-y: auto; max-height: 280px;
+  padding: 6px 0;
+}
+.sess-empty { padding: 20px 14px; font-size: 13px; color: var(--muted); text-align: center; }
+
+.sess-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; cursor: pointer;
+  transition: background 0.12s;
+  min-height: 44px;
+}
+.sess-item:hover { background: var(--surface-2); }
+.sess-item.is-active { background: var(--accent-soft); }
+
+.sess-item-body { flex: 1; min-width: 0; }
+.sess-item-name {
+  display: block; font-size: 13.5px; font-weight: 500; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sess-item-subj {
+  display: block; font-size: 11px; color: var(--muted); margin-top: 2px;
+}
+
+.sess-item-actions {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+}
+.sess-active-check { color: var(--accent); }
+.sess-rename-btn {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; border: none; background: transparent;
+  color: var(--muted); cursor: pointer; border-radius: 4px;
+  opacity: 0; transition: opacity 0.12s, background 0.12s;
+}
+.sess-item:hover .sess-rename-btn { opacity: 1; }
+.sess-rename-btn:hover { background: var(--surface-3); color: var(--ink); }
+
+.sess-rename-input {
+  flex: 1; font-size: 13.5px; padding: 4px 8px;
+  border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--surface); color: var(--ink); outline: none;
+}
+
+.sess-panel-foot {
+  border-top: 1px solid var(--line); padding: 8px;
+  flex-shrink: 0;
+}
+
+.sess-new-btn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 8px 10px;
+  border: 1px dashed var(--line-strong); border-radius: var(--r-sm);
+  background: transparent; color: var(--muted); font-size: 13px;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.sess-new-btn:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+
+.sess-create-form {
+  display: flex; flex-direction: column; gap: 8px; padding: 2px 2px 0;
+}
+.sess-create-subj-static { display: flex; align-items: center; }
+.sess-create-subj { display: flex; gap: 6px; flex-wrap: wrap; }
+.sess-subj-badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+.sess-subj-opt {
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  transition: background 0.12s, border-color 0.12s;
+}
+.sess-subj-opt.is-active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+
+.sess-create-input {
+  font-size: 13.5px; padding: 7px 10px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--ink); outline: none;
+  transition: border-color 0.15s;
+}
+.sess-create-input:focus { border-color: var(--accent); background: var(--surface); }
+.sess-create-input::placeholder { color: var(--muted); }
+
+.sess-create-actions {
+  display: flex; gap: 6px; justify-content: flex-end;
+}
+.sess-create-cancel {
+  padding: 6px 12px; border-radius: var(--r-sm); font-size: 13px;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--ink-2);
+  cursor: pointer; transition: background 0.12s;
+}
+.sess-create-cancel:hover { background: var(--surface-2); }
+.sess-create-confirm {
+  padding: 6px 12px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600;
+  border: none; background: var(--accent); color: var(--on-accent);
+  cursor: pointer; transition: opacity 0.15s;
+}
+.sess-create-confirm:disabled { opacity: 0.6; cursor: not-allowed; }

@@ -11,21 +11,61 @@ from app.domain.enums import MessageRole
 from app.repositories.orm import ConversationORM, MessageORM
 
 
+async def list_conversations(
+    session: AsyncSession,
+    user_id: UUID,
+) -> list[ConversationORM]:
+    """Return all named chat conversations for a user, newest activity first.
+
+    Filters subject IS NOT NULL to exclude anonymous exam-session conversations.
+    """
+    result = await session.execute(
+        select(ConversationORM)
+        .where(ConversationORM.user_id == user_id)
+        .where(ConversationORM.subject.isnot(None))
+        .order_by(
+            ConversationORM.last_message_at.desc().nullslast(),
+            ConversationORM.created_at.desc(),
+        )
+    )
+    return list(result.scalars())
+
+
 async def get_or_create_conversation(
     session: AsyncSession,
     user_id: UUID,
     subject: str = "math_gs12",
 ) -> ConversationORM:
-    """Return the existing conversation for (user_id, subject), creating it if absent."""
+    """Return the most recent conversation for (user_id, subject), creating one if absent.
+
+    The uniqueness constraint was dropped in migration 0007; this now returns
+    the newest matching row rather than asserting exactly one exists.
+    """
     result = await session.execute(
         select(ConversationORM)
         .where(ConversationORM.user_id == user_id)
         .where(ConversationORM.subject == subject)
+        .order_by(ConversationORM.created_at.desc())
+        .limit(1)
     )
     row = result.scalar_one_or_none()
     if row is not None:
         return row
     row = ConversationORM(user_id=user_id, subject=subject)
+    session.add(row)
+    await session.flush()
+    await session.refresh(row)
+    return row
+
+
+async def create_named_conversation(
+    session: AsyncSession,
+    user_id: UUID,
+    subject: str,
+    title: str | None = None,
+) -> ConversationORM:
+    """Create a new named chat conversation."""
+    row = ConversationORM(user_id=user_id, subject=subject, title=title)
     session.add(row)
     await session.flush()
     await session.refresh(row)
@@ -54,20 +94,44 @@ async def get_conversation(
     return result.scalar_one_or_none()
 
 
-async def clear_conversation(
+async def get_conversation_for_user(
     session: AsyncSession,
+    conversation_id: UUID,
     user_id: UUID,
-    subject: str = "math_gs12",
-) -> UUID | None:
-    """Set cleared_at = now() on the (user_id, subject) conversation.
-
-    Returns the conversation ID so the caller can reset derived state (e.g. Redis
-    guardrail counter). Returns None if no such conversation exists yet.
-    """
+) -> ConversationORM | None:
+    """Return the conversation only if it belongs to the given user."""
     result = await session.execute(
         select(ConversationORM)
+        .where(ConversationORM.id == conversation_id)
         .where(ConversationORM.user_id == user_id)
-        .where(ConversationORM.subject == subject)
+    )
+    return result.scalar_one_or_none()
+
+
+async def rename_conversation(
+    session: AsyncSession,
+    conversation_id: UUID,
+    title: str | None,
+) -> None:
+    await session.execute(
+        update(ConversationORM)
+        .where(ConversationORM.id == conversation_id)
+        .values(title=title)
+    )
+    await session.flush()
+
+
+async def clear_conversation(
+    session: AsyncSession,
+    conversation_id: UUID,
+) -> UUID | None:
+    """Set cleared_at = now() on the conversation.
+
+    Returns the conversation ID so the caller can reset derived state (e.g. Redis
+    guardrail counter). Returns None if the conversation doesn't exist.
+    """
+    result = await session.execute(
+        select(ConversationORM).where(ConversationORM.id == conversation_id)
     )
     row = result.scalar_one_or_none()
     if row is None:
@@ -91,6 +155,11 @@ async def add_message(
         guardrails_score=guardrails_score,
     )
     session.add(row)
+    await session.execute(
+        update(ConversationORM)
+        .where(ConversationORM.id == conversation_id)
+        .values(last_message_at=datetime.now(timezone.utc))
+    )
     await session.flush()
     await session.refresh(row)
     return row

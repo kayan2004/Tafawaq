@@ -69,6 +69,9 @@ services:
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-placeholder-set-real-key}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-prod}
       ELEVEN_LABS_API_KEY: ${ELEVEN_LABS_API_KEY:-placeholder-set-real-key}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESET_PASSWORD_FROM_EMAIL: ${RESET_PASSWORD_FROM_EMAIL:-onboarding@resend.dev}
+      RESET_PASSWORD_TOKEN_SECRET: ${RESET_PASSWORD_TOKEN_SECRET:-dev-reset-password-secret-change-in-prod}
     volumes:
       - ./scripts:/scripts:ro
     entrypoint: ["sh", "/scripts/seed_vault.sh"]
