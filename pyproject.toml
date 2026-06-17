@@ -20,6 +20,10 @@ dependencies = [
     # AI / LLM
     "anthropic>=0.40",
     "voyageai>=0.3",
+    # Prompt management + LLM observability — pinned to the 2.x line to match
+    # the self-hosted langfuse/langfuse:2 server in docker-compose.yml (v3
+    # requires a heavier self-host topology this stack doesn't provision).
+    "langfuse==2.56.1",
     # Infrastructure
     "redis[hiredis]>=5.0",
     "minio>=7.2",

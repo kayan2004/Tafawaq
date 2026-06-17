@@ -1,10 +1,10 @@
-"""Prompt builder for handwritten answer extraction via Claude Vision."""
+"""Subject-agnostic handwritten answer extraction prompt."""
 from __future__ import annotations
 
 
 def build_extraction_prompt(exam_content: dict) -> str:
     lines = [
-        "You are analyzing a scanned handwritten mathematics exam response.",
+        "You are analyzing a scanned handwritten exam response.",
         "Extract the student's written answers and map them to the exercise parts listed below.",
         "",
         "## Exam Structure",

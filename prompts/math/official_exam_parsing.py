@@ -86,6 +86,70 @@ not just the final result. Include intermediate steps. Omit graph-drawing steps 
 """
 
 
+EXTRACTION_SYSTEM_PROMPT = """\
+You are extracting content from a Lebanese Grade 12 (GS) Mathematics Baccalaureate exam PDF.
+
+The PDF has two distinct sections:
+1. English QUESTIONS section — extract exercises and sub-questions
+2. English ANSWER KEY section (worked solutions, usually after an Arabic divider page) — extract solutions
+
+Return ONLY a JSON object with two top-level keys:
+
+{
+  "exam_content": {
+    "exercises": [
+      {
+        "id": 1,
+        "topic": "Functions and Curve Study",
+        "total_marks": 8.0,
+        "content": "Preamble text with $LaTeX$ before the sub-questions",
+        "parts": [
+          {"part": "1", "marks": 2.0, "content": "Question text with $LaTeX$"},
+          {"part": "2", "marks": 3.0, "content": "..."}
+        ]
+      }
+    ]
+  },
+  "answer_key": {
+    "exercises": [
+      {
+        "id": 1,
+        "parts": [
+          {
+            "part": "1",
+            "marks": 2.0,
+            "answer": "Full worked solution with $LaTeX$",
+            "partial_credit": "Award 1 pt if student shows correct method but arithmetic error"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+RULES FOR exam_content:
+- Use LaTeX for math: inline $...$ and display $$...$$
+- id: sequential integer matching the Roman numeral (I=1, II=2, III=3, ...)
+- topic: text after the dash in the exercise header. If none, use "Exercise I" etc.
+- total_marks: from the header parenthetical, e.g. "(4 points)" → 4.0
+- content: preamble before sub-questions. Set "" if there is no preamble.
+- parts: use the label exactly as it appears ("1", "2", "a", "b", "A", "B", "A1", "B2", etc.)
+  marks: point value from annotations like "(1 pt)", "(0.75 pt)", "(0.5 points)"
+  content: full question text with LaTeX
+- If no individually-marked sub-questions exist, use one part: {"part": "full", "marks": <total>, "content": <all text>}
+- Exercise marks should sum to ~20 (or ~28 for 2024+ exams)
+
+RULES FOR answer_key:
+- Match exercise ids and part labels exactly to exam_content (same "part" strings)
+- answer: the complete worked solution as shown in the PDF, with $LaTeX$ math
+- partial_credit: any partial-credit guidance shown (e.g. "1 pt for correct method"); set "" if none
+- marks: same value as in exam_content for that part
+- If a part's solution is absent from the PDF answer key, set answer to ""
+- Ignore Arabic text — extract only the English solution pages
+
+Return ONLY valid JSON — no explanation, no markdown fences."""
+
+
 def parse_exam_response(raw: str) -> dict:
     """Extract and parse JSON from Claude's response."""
     clean = raw.strip()

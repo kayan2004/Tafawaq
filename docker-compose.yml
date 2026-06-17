@@ -72,6 +72,11 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESET_PASSWORD_FROM_EMAIL: ${RESET_PASSWORD_FROM_EMAIL:-onboarding@resend.dev}
       RESET_PASSWORD_TOKEN_SECRET: ${RESET_PASSWORD_TOKEN_SECRET:-dev-reset-password-secret-change-in-prod}
+      # Same dev key pair the langfuse service self-provisions via LANGFUSE_INIT_*
+      # below — keeps the API pre-authenticated against self-hosted Langfuse with
+      # no manual "create API key in the UI" step.
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-dev0000-0000-0000-0000-000000000000}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-dev0000-0000-0000-0000-000000000000}
     volumes:
       - ./scripts:/scripts:ro
     entrypoint: ["sh", "/scripts/seed_vault.sh"]
@@ -79,6 +84,66 @@ services:
       vault:
         condition: service_healthy
     restart: on-failure
+
+  langfuse-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfusepassword
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Self-hosted Langfuse (prompt management + LLM observability).
+  # Pinned to the v2 major tag deliberately: v3 self-host additionally requires
+  # ClickHouse + Redis + S3-compatible storage, which this dev stack does not
+  # provision. Do not bump to :latest without adding those services too.
+  langfuse:
+    image: langfuse/langfuse:2
+    restart: always
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      # Without this, Next.js standalone binds to Docker's auto-set HOSTNAME
+      # (the container's bridge IP) instead of all interfaces — the published
+      # port still works from the host, but loopback-based healthchecks
+      # (and `wget localhost` from inside the container) get connection refused.
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: postgresql://langfuse:langfusepassword@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-dev-langfuse-nextauth-secret-change-in-prod}
+      SALT: ${LANGFUSE_SALT:-dev-langfuse-salt-change-in-prod}
+      NEXTAUTH_URL: http://localhost:3001
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      # Headless init: pre-provisions an org/project/user and, critically, an
+      # API key pair matching LANGFUSE_PUBLIC_KEY/SECRET_KEY above — so the app
+      # is traced from the very first `docker compose up`, no UI step required.
+      LANGFUSE_INIT_ORG_ID: tafawwaq-org
+      LANGFUSE_INIT_ORG_NAME: Tafawwaq
+      LANGFUSE_INIT_PROJECT_ID: tafawwaq-project
+      LANGFUSE_INIT_PROJECT_NAME: Tafawwaq
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-dev0000-0000-0000-0000-000000000000}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-dev0000-0000-0000-0000-000000000000}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@tafawwaq.dev}
+      LANGFUSE_INIT_USER_NAME: Admin
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-dev-langfuse-admin-change-in-prod}
+    healthcheck:
+      # 127.0.0.1, not localhost: this minimal image resolves "localhost" to
+      # ::1 first, and the server isn't bound dual-stack.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/public/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   migrate:
     build: .
@@ -116,6 +181,9 @@ services:
       # Docker-internal Vault address — overrides VAULT_ADDR from env_file
       VAULT_ADDR: http://vault:8200
       GUARDRAILS_URL: http://guardrails:8100
+      # Not a secret — just service discovery, same treatment as GUARDRAILS_URL.
+      # Public/secret keys are Vault-sourced (see AppSecrets.langfuse_*).
+      LANGFUSE_HOST: http://langfuse:3000
     env_file:
       - .env
     depends_on:
@@ -131,6 +199,8 @@ services:
         condition: service_completed_successfully
       guardrails:
         condition: service_healthy
+      langfuse:
+        condition: service_started
 
   frontend:
     build:
@@ -159,3 +229,4 @@ volumes:
   redis_data:
   minio_data:
   pgadmin_data:
+  langfuse_db_data:

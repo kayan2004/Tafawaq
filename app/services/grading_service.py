@@ -71,22 +71,22 @@ async def grade(
         ev1, ev2 = await asyncio.gather(
             asyncio.to_thread(
                 call_pdf_evaluator, "strict", exam_content, pdf_bytes,
-                answers, secrets.anthropic_api_key,
+                answers, secrets.anthropic_api_key, secrets, str(user_id), str(session_id),
             ),
             asyncio.to_thread(
                 call_pdf_evaluator, "lenient", exam_content, pdf_bytes,
-                answers, secrets.anthropic_api_key,
+                answers, secrets.anthropic_api_key, secrets, str(user_id), str(session_id),
             ),
         )
     else:
         ev1, ev2 = await asyncio.gather(
             asyncio.to_thread(
                 call_evaluator, "strict", exam_content, answer_key,
-                answers, secrets.anthropic_api_key,
+                answers, secrets.anthropic_api_key, secrets, str(user_id), str(session_id),
             ),
             asyncio.to_thread(
                 call_evaluator, "lenient", exam_content, answer_key,
-                answers, secrets.anthropic_api_key,
+                answers, secrets.anthropic_api_key, secrets, str(user_id), str(session_id),
             ),
         )
 

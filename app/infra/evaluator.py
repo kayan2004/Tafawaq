@@ -5,8 +5,11 @@ import json
 
 from app.domain.exceptions import EvaluatorResponseError
 from app.domain.grading import EvaluatorResult, ExerciseResult, PartResult
+from app.infra import langfuse_client
 from app.infra.llm.claude import call_claude
-from prompts.grading import build_evaluator_prompt, build_pdf_evaluator_prompt
+from app.infra.vault import AppSecrets
+from prompts.math.grading import PERSONA_INSTRUCTIONS, build_pdf_evaluator_prompt
+from prompts.shared.grading import build_evaluator_prompt
 
 
 def _strip_fences(raw: str) -> str:
@@ -18,16 +21,26 @@ def _strip_fences(raw: str) -> str:
     return clean.strip()
 
 
+def _persona_instructions(secrets: AppSecrets, persona: str) -> str:
+    return langfuse_client.get_prompt(
+        secrets, f"grading_persona_{persona}", fallback=PERSONA_INSTRUCTIONS[persona]
+    )
+
+
 def call_pdf_evaluator(
     persona: str,
     exam_content: dict,
     pdf_bytes: bytes,
     answers: list[dict],
     api_key: str,
+    secrets: AppSecrets,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> EvaluatorResult:
     """Grade against the official exam PDF (questions + solutions). Always run via asyncio.to_thread()."""
     import base64
-    system = build_pdf_evaluator_prompt(persona, exam_content, answers)
+    persona_text = _persona_instructions(secrets, persona)
+    system = build_pdf_evaluator_prompt(persona_text, exam_content, answers)
     b64 = base64.standard_b64encode(pdf_bytes).decode("utf-8")
     messages = [
         {
@@ -48,7 +61,11 @@ def call_pdf_evaluator(
             ],
         }
     ]
-    raw = call_claude(messages, system=system, api_key=api_key, max_tokens=16000)
+    raw = call_claude(
+        messages, system=system, api_key=api_key, secrets=secrets,
+        max_tokens=16000, trace_name=f"grading_pdf_{persona}",
+        user_id=user_id, session_id=session_id,
+    )
     try:
         parsed = json.loads(_strip_fences(raw))
         exercises = [
@@ -73,11 +90,19 @@ def call_evaluator(
     answer_key: dict,
     answers: list[dict],
     api_key: str,
+    secrets: AppSecrets,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> EvaluatorResult:
     """Synchronous — always wrap with asyncio.to_thread()."""
-    system = build_evaluator_prompt(persona, exam_content, answer_key, answers)
+    persona_text = _persona_instructions(secrets, persona)
+    system = build_evaluator_prompt(persona_text, exam_content, answer_key, answers)
     messages = [{"role": "user", "content": "Grade this submission and return the JSON object only."}]
-    raw = call_claude(messages, system=system, api_key=api_key, max_tokens=16000)
+    raw = call_claude(
+        messages, system=system, api_key=api_key, secrets=secrets,
+        max_tokens=16000, trace_name=f"grading_{persona}",
+        user_id=user_id, session_id=session_id,
+    )
     try:
         parsed = json.loads(_strip_fences(raw))
         exercises = [

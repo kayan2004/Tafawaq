@@ -14,17 +14,18 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import MessageRole
+from app.infra import langfuse_client
 from app.infra.llm.claude import call_claude, call_claude_vision, stream_claude
 from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL
 from app.infra.vault import AppSecrets
 from app.repositories import exam_repo, message_repo, textbook_repo
 from app.services import guardrails_service, retrieval_service
-from prompts.chat import BLOCK_MESSAGE as _BLOCK_MESSAGE
-from prompts.chat import IMAGE_EXTRACT_PROMPT as _IMAGE_EXTRACT_PROMPT
-from prompts.chat import RETRIEVE_SYSTEM_PROMPT as _RETRIEVE_SYSTEM_PROMPT
-from prompts.chat import WARNING_SUFFIX as _WARNING_SUFFIX
-from prompts.chat import build_chat_system_prompt as _build_chat_system_prompt_fn
-from prompts.chat import build_retrieve_user_message as _build_retrieve_user_message
+from prompts.math.chat import BLOCK_MESSAGE as _BLOCK_MESSAGE
+from prompts.math.chat import IMAGE_EXTRACT_PROMPT as _IMAGE_EXTRACT_PROMPT
+from prompts.math.chat import RETRIEVE_SYSTEM_PROMPT as _RETRIEVE_SYSTEM_PROMPT
+from prompts.math.chat import WARNING_SUFFIX as _WARNING_SUFFIX
+from prompts.math.chat import build_chat_system_prompt as _build_chat_system_prompt_fn
+from prompts.shared.chat import build_retrieve_user_message as _build_retrieve_user_message
 
 _CHAT_TOOLS = [RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL]
 
@@ -126,13 +127,20 @@ async def handle_turn(
             if image_base64 and image_media_type:
                 try:
                     image_bytes = base64.b64decode(image_base64)
+                    image_extract_prompt = langfuse_client.get_prompt(
+                        secrets, "chat_image_extract_prompt", fallback=_IMAGE_EXTRACT_PROMPT
+                    )
                     extracted = await asyncio.to_thread(
                         call_claude_vision,
                         image_bytes,
                         image_media_type,
-                        _IMAGE_EXTRACT_PROMPT,
+                        image_extract_prompt,
                         secrets.anthropic_api_key,
+                        secrets,
                         1024,
+                        trace_name="retrieve_image_extract",
+                        user_id=str(user_id),
+                        session_id=str(conversation_id),
                     )
                     extracted = extracted.strip()
                     if extracted:
@@ -161,12 +169,19 @@ async def handle_turn(
                         }
                         for q in candidates
                     ]
+                    retrieve_system_prompt = langfuse_client.get_prompt(
+                        secrets, "chat_retrieve_system_prompt", fallback=_RETRIEVE_SYSTEM_PROMPT
+                    )
                     raw = await asyncio.to_thread(
                         call_claude,
                         [{"role": "user", "content": _build_retrieve_user_message(query, candidate_dicts)}],
-                        _RETRIEVE_SYSTEM_PROMPT,
+                        retrieve_system_prompt,
                         secrets.anthropic_api_key,
+                        secrets,
                         3000,
+                        trace_name="retrieve_filter",
+                        user_id=str(user_id),
+                        session_id=str(conversation_id),
                     )
                     # Parse defensively: strip markdown fences, find outermost {}
                     try:
@@ -227,7 +242,11 @@ async def handle_turn(
                 claude_messages,
                 system=system,
                 api_key=secrets.anthropic_api_key,
+                secrets=secrets,
                 tools=_CHAT_TOOLS,
+                trace_name="chat_turn",
+                user_id=str(user_id),
+                session_id=str(conversation_id),
             ):
                 if chunk == "data: [DONE]\n\n":
                     break

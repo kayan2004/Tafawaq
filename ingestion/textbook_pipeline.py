@@ -26,7 +26,7 @@ _SOURCE_TYPE_MAP = {
 
 _SKIP_TYPES = {"blank", "preface", "just_for_fun"}
 
-from prompts.tagging_textbook import TAG_PROMPT as _TAG_PROMPT
+from prompts.math.tagging_textbook import TAG_PROMPT as _TAG_PROMPT
 
 
 class SkipFile(Exception):

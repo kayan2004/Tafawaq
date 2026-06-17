@@ -29,6 +29,10 @@ class AppSecrets(BaseModel):
     resend_api_key: str = ""
     reset_password_from_email: str = "onboarding@resend.dev"
     reset_password_token_secret: str = ""
+    # Empty defaults mean "Langfuse observability disabled" — langfuse_client
+    # degrades to local prompt fallbacks and no-op tracing rather than raising.
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
 
 
 def resolve_secrets() -> AppSecrets:

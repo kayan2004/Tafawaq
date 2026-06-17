@@ -22,6 +22,7 @@ Lebanese GS Grade 12 Math exam prep platform. Students generate mock exams, subm
 | LLM — ingestion tagging only | `claude-haiku-4-5-20251001` |
 | Embeddings | `voyage-large-2` (1536d) via voyageai SDK |
 | Guardrails | NeMo Guardrails sidecar at `http://guardrails:8100` |
+| Observability | Langfuse v2 self-hosted at `http://localhost:3001` (pinned `langfuse/langfuse:2`) |
 | Frontend | React + Vite + TypeScript, hash routing, no react-router-dom yet |
 | Containers | Docker Compose (`docker compose up`) |
 | Migrations | Alembic — `migrate` container runs `alembic upgrade head` before API starts |
@@ -44,20 +45,44 @@ app/
 │   ├── models.py   Pydantic models that cross layer boundaries — services return these, not ORM models
 │   ├── exceptions.py   Domain exception hierarchy — raised by services, mapped to HTTP in api/exceptions.py
 │   └── enums.py    SessionType, SessionStatus, QuestionType, MessageRole
+├── utils.py        Shared utility functions (parse_json_response — strips fences, parses JSON)
 └── infra/
-    ├── vault.py         resolve_secrets() → AppSecrets; called once at lifespan startup
-    ├── auth.py          fastapi-users setup
-    ├── redis_client.py  Redis key helpers (guardrails counter, session TTL)
-    ├── minio_client.py  Client wrapper — not yet called by runtime code
+    ├── vault.py              resolve_secrets() → AppSecrets; called once at lifespan startup
+    ├── auth.py               fastapi-users setup
+    ├── redis_client.py       Redis key helpers (guardrails counter, session TTL)
+    ├── minio_client.py       Client wrapper — not yet called by runtime code
+    ├── langfuse_client.py    Lazy singleton; get_prompt() with fallback; trace() context manager
     ├── llm/
     │   ├── claude.py    stream_claude() → SSE generator; call_claude() → sync blocking
     │   └── tools.py     Tool schema dicts only — no execution logic; ALL_TOOLS list
     └── embeddings/
         └── voyage.py    embed_text() — sync, must be called via asyncio.to_thread()
 
+prompts/
+├── shared/          Subject-agnostic — zero subject references anywhere in these files
+│   ├── chat.py          build_retrieve_user_message
+│   ├── extraction.py    build_extraction_prompt
+│   ├── exam_generation.py  JUDGE_SYSTEM_PROMPT
+│   └── grading.py       build_evaluator_prompt, _format_exam/_answer_key/_answers helpers
+└── math/            Lebanese GS Grade 12 Math specific
+    ├── chat.py              build_chat_system_prompt, IMAGE_EXTRACT_PROMPT, RETRIEVE_SYSTEM_PROMPT,
+    │                        BLOCK_MESSAGE, WARNING_SUFFIX
+    ├── exam_generation.py   build_generation_system_prompt, VALIDATOR_SYSTEM_PROMPT, REGENERATE_SYSTEM_PROMPT
+    ├── grading.py           PERSONA_INSTRUCTIONS, build_pdf_evaluator_prompt
+    ├── official_exam_parsing.py  SYSTEM_PROMPT, EXTRACTION_SYSTEM_PROMPT, parse_exam_response
+    ├── tagging_textbook.py  TAG_PROMPT (ingestion only)
+    └── tagging_past_exams.py  TAG_PROMPT (ingestion only)
+
 ingestion/
-└── textbook_pipeline.py  Offline CLI: markdown → parse → chunk → tag → embed → pgvector
-                          Run: uv run python -m ingestion.textbook_pipeline --textbook-dir textbook/
+├── textbook_pipeline.py      Offline CLI: markdown → parse → chunk → tag → embed → pgvector
+│                             Run: uv run python -m ingestion.textbook_pipeline --textbook-dir textbook/
+└── official_exam_pipeline.py  PDF → Claude extraction → PostgreSQL + MinIO
+
+scripts/
+└── seed_langfuse_prompts.py  Idempotent — pushes all prompts/ constants to Langfuse as "production" label.
+                              Run after adding or editing any prompt constant.
+                              STATIC_PROMPT_NAMES maps Python (module, attr) → Langfuse name; must stay
+                              in sync with every get_prompt() call site in app/.
 
 alembic/versions/
 ├── 0001_baseline.py   All tables: users, conversations, messages, exam_sessions, exam_results,
@@ -152,6 +177,39 @@ The other three tools (`retrieve_past_questions`, `retrieve_answer_key`, `get_to
 
 ---
 
+## Langfuse observability
+
+Langfuse v2 runs as a Docker Compose service (`langfuse` + `langfuse-db`), available at `http://localhost:3001`. Dev credentials are pre-provisioned via `LANGFUSE_INIT_*` env vars — no manual UI setup needed.
+
+**Keys:** `langfuse_public_key` / `langfuse_secret_key` live in Vault (via `seed_vault.sh`) and are loaded into `AppSecrets`. `LANGFUSE_HOST` is a non-secret env var on the api service (same pattern as `GUARDRAILS_URL`).
+
+**Client:** `app/infra/langfuse_client.py` — lazy singleton. Never raises. Langfuse being down must never break the app.
+- `get_prompt(secrets, name, fallback=...)` — fetches from Langfuse with `max_retries=1, fetch_timeout_seconds=3`; returns fallback string if unreachable
+- `trace(secrets, name, ...)` — context manager; `handle.input/output/model/usage` fields captured on exit
+
+**Every Claude call is traced.** `stream_claude`, `call_claude`, `call_claude_vision` all accept `secrets`, `trace_name`, `user_id`, `session_id` kwargs and wrap their call in `langfuse_client.trace()`.
+
+**Prompt management:**
+- *Static prompts* (plain string constants) — fetched live from Langfuse at runtime via `get_prompt()`; Python constant is the fallback only
+- *Dynamic builders* (`build_*()` functions) — stay in Python permanently; f-string interpolation and embedded JSON schemas collide with Langfuse `{{mustache}}` syntax. Rendered snapshots are pushed to Langfuse for visibility only (named `*_snapshot`, never fetched)
+- Run `scripts/seed_langfuse_prompts.py` after adding or editing any prompt constant
+
+---
+
+## Prompts architecture
+
+`prompts/` is split into two tiers enforced by a strict rule: **`shared/` files must contain zero subject-specific references**.
+
+- `shared/` — structural code reusable for any exam subject (generic builders, format helpers, subject-agnostic prompt constants)
+- `math/` — Lebanese GS Grade 12 Math specific (curriculum references, LaTeX rules, Lebanese baccalaureate context)
+- To add a new subject: create `prompts/{subject}/` following the same split
+
+Dynamic builders stay in Python even when they look like templates — see Langfuse section above for why.
+
+`parse_json_response()` in `app/utils.py` is the shared Claude-response JSON parser. Do not add response-parsing logic to `prompts/`.
+
+---
+
 ## Ingestion pipeline
 
 Textbook input: markdown files in `textbook/` with YAML frontmatter per page, pages separated by `===PAGE_BREAK===`.
@@ -180,4 +238,5 @@ Past exam ingestion pipeline (`ingestion/pipeline.py` in spec 001) is not yet wr
 - Do not create new top-level directories — all backend code lives under `app/` or `ingestion/`.
 - New exceptions go in `domain/exceptions.py` and must be mapped in `api/exceptions.py` before the router is added.
 - New LLM tools go in `infra/llm/tools.py` as plain dicts. Tool dispatch goes in the service layer.
+- New prompt constants go in `prompts/shared/` (if zero subject refs) or `prompts/math/` (if any Lebanese GS / math reference). After adding, run `seed_langfuse_prompts.py` and add the name to `STATIC_PROMPT_NAMES` if it will be fetched at runtime via `get_prompt()`.
 - `docker compose up` starts all services. `docker compose run --rm migrate` runs migrations standalone.

@@ -14,13 +14,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.enums import SessionStatus, SessionType
 from app.domain.exceptions import ExamNotFound, ExtractionFailed
 from app.domain.models import AnswerKey, ExamContent, ExamSession
+from app.infra import langfuse_client
 from app.infra.llm.claude import call_claude, call_claude_vision
 from app.infra.redis_client import set_session
 from app.infra.vault import AppSecrets
 from app.repositories import exam_repo, message_repo
 
-from prompts.exam_generation import build_generation_system_prompt as _build_gen_prompt_fn, parse_generation_response
-from prompts.extraction import build_extraction_prompt
+from prompts.math.exam_generation import (
+    REGENERATE_SYSTEM_PROMPT as _REGENERATE_SYSTEM,
+    VALIDATOR_SYSTEM_PROMPT as _VALIDATOR_SYSTEM,
+    build_generation_system_prompt as _build_gen_prompt_fn,
+)
+from prompts.shared.exam_generation import JUDGE_SYSTEM_PROMPT as _JUDGE_SYSTEM
+from app.utils import parse_json_response as parse_generation_response
+from prompts.shared.extraction import build_extraction_prompt
 
 # Load data files once at module import.
 _DATA_DIR = pathlib.Path(__file__).parent.parent / "data"
@@ -32,18 +39,6 @@ _few_shot_exams: list[str] = []
 _fs_exam = _DATA_DIR / "2021_regular_exam.md"
 if _fs_exam.exists():
     _few_shot_exams.append(_fs_exam.read_text())
-
-# ── Validation constants ──────────────────────────────────────────────────────
-
-_VALIDATOR_SYSTEM = (
-    "You are a Lebanese GS Grade 12 math student. "
-    "Solve the following question from scratch and show your work."
-)
-_JUDGE_SYSTEM = (
-    "You are a mathematics checker. Compare a student's solution to an official answer key "
-    "and determine whether they reach the same correct final answers. "
-    'Reply with JSON only: {"agrees": true|false, "notes": "brief explanation"}'
-)
 
 # Holds strong references to background tasks so GC cannot collect them mid-run.
 _bg_tasks: set[asyncio.Task] = set()
@@ -68,19 +63,101 @@ def _build_generation_system_prompt() -> str:
     return _build_gen_prompt_fn(_curriculum, _exam_analysis, _exam_config, _few_shot_exams)
 
 
-# ── Validation helpers (sync — all called via asyncio.to_thread) ──────────────
-
-def _call_validator(question_text: str, api_key: str) -> str:
-    """Student-persona call: solve the question. Returns free-form solution text."""
-    return call_claude(
-        messages=[{"role": "user", "content": question_text}],
-        system=_VALIDATOR_SYSTEM,
-        api_key=api_key,
-        max_tokens=4096,
+def _build_generation_user_message(generation_prompt: str | None) -> str:
+    brief = (
+        generation_prompt.strip()
+        if generation_prompt and generation_prompt.strip()
+        else "Generate a full 20-point Lebanese GS Math mock exam covering a representative spread of the curriculum."
+    )
+    return (
+        "Generate a 20-point Lebanese GS Mathematics mock exam from this student brief.\n\n"
+        "Student exam brief:\n"
+        f"{brief}\n\n"
+        "Remember: the brief may narrow topic focus or difficulty, but the final exam must obey the system "
+        "curriculum, Lebanese GS style, mark total, and JSON schema."
     )
 
 
-def _call_judge(solution: str, answer_key_text: str, api_key: str) -> tuple[bool, str]:
+def _expected_total_marks() -> float:
+    return float(_exam_config.get("total_marks", 20) or 20)
+
+
+def _validate_generated_payload(exam_content: ExamContent, answer_key: AnswerKey) -> None:
+    """Validate model-output invariants that Pydantic shape checks cannot express."""
+    errors: list[str] = []
+    expected_total = _expected_total_marks()
+    exercises = exam_content.exercises
+
+    if not exercises:
+        errors.append("exam has no exercises")
+    total = sum(float(ex.total_marks) for ex in exercises)
+    if abs(total - expected_total) > 0.01:
+        errors.append(f"exam total is {total:g}, expected {expected_total:g}")
+
+    exercise_ids = [ex.id for ex in exercises]
+    if len(exercise_ids) != len(set(exercise_ids)):
+        errors.append("exercise IDs must be unique")
+
+    answer_by_id = {ex.id: ex for ex in answer_key.exercises}
+    answer_ids = [ex.id for ex in answer_key.exercises]
+    if len(answer_ids) != len(set(answer_ids)):
+        errors.append("answer key exercise IDs must be unique")
+    if set(answer_by_id) != set(exercise_ids):
+        errors.append("answer key exercise IDs must match exam exercise IDs")
+
+    for ex in exercises:
+        if not ex.parts:
+            errors.append(f"exercise {ex.id} has no parts")
+            continue
+        part_ids = [part.part for part in ex.parts]
+        if len(part_ids) != len(set(part_ids)):
+            errors.append(f"exercise {ex.id} part labels must be unique")
+            continue
+        part_total = sum(float(part.marks) for part in ex.parts)
+        if abs(part_total - float(ex.total_marks)) > 0.01:
+            errors.append(
+                f"exercise {ex.id} part marks sum to {part_total:g}, expected {float(ex.total_marks):g}"
+            )
+
+        answer_ex = answer_by_id.get(ex.id)
+        if answer_ex is None:
+            continue
+        part_marks = {part.part: float(part.marks) for part in ex.parts}
+        answer_part_ids = [part.part for part in answer_ex.parts]
+        if len(answer_part_ids) != len(set(answer_part_ids)):
+            errors.append(f"answer key parts for exercise {ex.id} must be unique")
+            continue
+        answer_parts = {part.part: part for part in answer_ex.parts}
+        if set(answer_parts) != set(part_marks):
+            errors.append(f"answer key parts for exercise {ex.id} must match exam parts")
+            continue
+        for part_id, marks in part_marks.items():
+            if abs(float(answer_parts[part_id].marks) - marks) > 0.01:
+                errors.append(f"answer key mark mismatch for exercise {ex.id} part {part_id}")
+
+    if errors:
+        raise ValueError("; ".join(errors))
+
+
+# ── Validation helpers (sync — all called via asyncio.to_thread) ──────────────
+
+def _call_validator(question_text: str, api_key: str, secrets: AppSecrets, session_id: str | None = None) -> str:
+    """Student-persona call: solve the question. Returns free-form solution text."""
+    system = langfuse_client.get_prompt(secrets, "exam_validator_system", fallback=_VALIDATOR_SYSTEM)
+    return call_claude(
+        messages=[{"role": "user", "content": question_text}],
+        system=system,
+        api_key=api_key,
+        secrets=secrets,
+        max_tokens=4096,
+        trace_name="exam_validate",
+        session_id=session_id,
+    )
+
+
+def _call_judge(
+    solution: str, answer_key_text: str, api_key: str, secrets: AppSecrets, session_id: str | None = None
+) -> tuple[bool, str]:
     """Compare student solution to answer key. Fails closed on parse error."""
     prompt = (
         f"STUDENT SOLUTION:\n{solution}\n\n"
@@ -88,11 +165,15 @@ def _call_judge(solution: str, answer_key_text: str, api_key: str) -> tuple[bool
         "Does the student solution reach the same final answers as the answer key? "
         'Reply with JSON only: {"agrees": true|false, "notes": "brief"}'
     )
+    system = langfuse_client.get_prompt(secrets, "exam_judge_system", fallback=_JUDGE_SYSTEM)
     raw = call_claude(
         messages=[{"role": "user", "content": prompt}],
-        system=_JUDGE_SYSTEM,
+        system=system,
         api_key=api_key,
+        secrets=secrets,
         max_tokens=200,
+        trace_name="exam_judge",
+        session_id=session_id,
     )
     try:
         clean = raw.strip()
@@ -126,6 +207,8 @@ def _call_regenerate(
     exercise_id: int,
     original_parts: list[dict],
     api_key: str,
+    secrets: AppSecrets,
+    session_id: str | None = None,
 ) -> tuple[dict, dict] | None:
     """Regenerate a single exercise preserving topic, total marks, and part breakdown."""
     parts_schema = ", ".join(
@@ -144,11 +227,15 @@ def _call_regenerate(
         f'"parts": [{{"part": "...", "marks": ..., "answer": "...", "partial_credit": ""}}]}}}}'
     )
     try:
+        system = langfuse_client.get_prompt(secrets, "exam_regenerate_system", fallback=_REGENERATE_SYSTEM)
         raw = call_claude(
             messages=[{"role": "user", "content": prompt}],
-            system="You are a Lebanese GS Grade 12 Math examiner. Output valid JSON only, no prose.",
+            system=system,
             api_key=api_key,
+            secrets=secrets,
             max_tokens=4096,
+            trace_name="exam_regenerate",
+            session_id=session_id,
         )
         clean = raw.strip()
         if clean.startswith("```"):
@@ -161,11 +248,13 @@ def _call_regenerate(
 
 # ── Async validation pipeline ─────────────────────────────────────────────────
 
-async def _validate_exercise(exercise: dict, ak_exercise: dict, api_key: str) -> tuple[bool, str]:
+async def _validate_exercise(
+    exercise: dict, ak_exercise: dict, api_key: str, secrets: AppSecrets, session_id: str | None = None
+) -> tuple[bool, str]:
     question_text = _build_question_text(exercise)
     answer_key_text = _build_answer_key_text(ak_exercise)
-    solution = await asyncio.to_thread(_call_validator, question_text, api_key)
-    agrees, notes = await asyncio.to_thread(_call_judge, solution, answer_key_text, api_key)
+    solution = await asyncio.to_thread(_call_validator, question_text, api_key, secrets, session_id)
+    agrees, notes = await asyncio.to_thread(_call_judge, solution, answer_key_text, api_key, secrets, session_id)
     return agrees, notes
 
 
@@ -182,7 +271,9 @@ async def _validate_exam_background(
         """Returns (is_valid, notes, replacement_exercise_or_None, replacement_ak_or_None)."""
         ak_ex = ak_by_id.get(exercise["id"], {})
         try:
-            agrees, notes = await _validate_exercise(exercise, ak_ex, secrets.anthropic_api_key)
+            agrees, notes = await _validate_exercise(
+                exercise, ak_ex, secrets.anthropic_api_key, secrets, str(session_id)
+            )
         except Exception as exc:
             return False, f"Validation error: {str(exc)[:120]}", None, None
 
@@ -197,13 +288,17 @@ async def _validate_exam_background(
             int(exercise.get("id", 1)),
             exercise.get("parts", []),
             secrets.anthropic_api_key,
+            secrets,
+            str(session_id),
         )
         if regen is None:
             return False, f"Validation failed; regeneration error. Initial: {notes}", None, None
 
         new_ex, new_ak_ex = regen
         try:
-            agrees2, notes2 = await _validate_exercise(new_ex, new_ak_ex, secrets.anthropic_api_key)
+            agrees2, notes2 = await _validate_exercise(
+                new_ex, new_ak_ex, secrets.anthropic_api_key, secrets, str(session_id)
+            )
         except Exception as exc:
             return False, f"Retry validation error: {str(exc)[:120]}", None, None
 
@@ -249,6 +344,7 @@ async def generate_exam(
     db_session: AsyncSession,
     redis: Redis,
     session_type: SessionType = SessionType.mock_generated,
+    generation_prompt: str | None = None,
 ) -> AsyncGenerator[str, None]:
     await exam_repo.archive_active_sessions(db_session, user_id)
 
@@ -267,20 +363,27 @@ async def generate_exam(
     yield f"data: {json.dumps({'event': 'session_created', 'session_id': str(placeholder_session.id)})}\n\n"
 
     system = _build_generation_system_prompt()
-    messages = [{"role": "user", "content": "Generate a 20-point Lebanese GS Math mock exam."}]
+    messages = [{"role": "user", "content": _build_generation_user_message(generation_prompt)}]
 
     try:
         raw = await asyncio.to_thread(
-            call_claude, messages, system=system, api_key=secrets.anthropic_api_key, max_tokens=16000
+            call_claude, messages, system=system, api_key=secrets.anthropic_api_key, secrets=secrets,
+            max_tokens=16000, trace_name="exam_generate", user_id=str(user_id),
+            session_id=str(placeholder_session.id),
         )
         parsed = parse_generation_response(raw)
         exam_content = ExamContent.model_validate(parsed["exam"])
         answer_key = AnswerKey.model_validate(parsed["answer_key"])
+        _validate_generated_payload(exam_content, answer_key)
     except Exception as exc:
+        await db_session.delete(placeholder_session)
+        await db_session.commit()
         yield f"data: {json.dumps({'event': 'error', 'message': str(exc) or 'AI service error'})}\n\n"
         return
 
     if not exam_content.exercises:
+        await db_session.delete(placeholder_session)
+        await db_session.commit()
         yield f"data: {json.dumps({'event': 'error', 'message': 'Model returned an empty exam. Please try again.'})}\n\n"
         return
 
@@ -363,8 +466,12 @@ async def extract_answers(
         mime_type,
         prompt,
         secrets.anthropic_api_key,
+        secrets,
         max_tokens=8192,
         prefill="{",
+        trace_name="exam_extract_answers",
+        user_id=str(user_id),
+        session_id=str(session_id),
     )
 
     logging.getLogger(__name__).info("extract_answers raw response (first 500 chars): %r", raw[:500])
