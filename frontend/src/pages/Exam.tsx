@@ -33,6 +33,11 @@ declare global {
 }
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
+const GENERATION_PRESETS = [
+  { label: "Full curriculum", prompt: "" },
+  { label: "Probability only", prompt: "Generate an exam that covers probability and random variables only." },
+  { label: "Functions + integrals", prompt: "Generate an exam focused on functions, limits, derivatives, and integrals." },
+];
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -305,14 +310,15 @@ type Phase =
 // ── Main Exam component ───────────────────────────────────────────────────────
 
 interface ExamProps {
-  triggerGenerate?: boolean;
+  generateRequest?: { id: number; prompt: string } | null;
   onGenerateConsumed?: () => void;
 }
 
-export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
+export function Exam({ generateRequest, onGenerateConsumed }: ExamProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [generationPrompt, setGenerationPrompt] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const token = getToken()!;
 
@@ -324,14 +330,15 @@ export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
 
   useEffect(() => { loadBrowse(); }, [token]);
 
-  const startGenerate = async () => {
+  const startGenerate = async (promptOverride?: string) => {
     setGenerating(true);
     setGenError(null);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     let sessionId: string | null = null;
     try {
-      const reader = await generateExamStream(token, ctrl.signal);
+      const prompt = promptOverride !== undefined ? promptOverride : generationPrompt;
+      const reader = await generateExamStream(token, ctrl.signal, prompt);
       const decoder = new TextDecoder();
       let buffer = "";
       outer: while (true) {
@@ -371,13 +378,14 @@ export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
 
   // Fire startGenerate once when triggered via /generate command from Chat.
   // genFiredRef prevents double-invocation under React StrictMode.
-  const genFiredRef = useRef(false);
+  const genFiredRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!triggerGenerate || genFiredRef.current) return;
-    genFiredRef.current = true;
+    if (!generateRequest || genFiredRef.current === generateRequest.id) return;
+    genFiredRef.current = generateRequest.id;
     onGenerateConsumed?.();
-    startGenerate();
-  }, [triggerGenerate]); // eslint-disable-line react-hooks/exhaustive-deps
+    setGenerationPrompt(generateRequest.prompt);
+    startGenerate(generateRequest.prompt);
+  }, [generateRequest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDetail = async (summary: ExamSessionSummary) => {
     setPhase({ kind: "loading-detail" });
@@ -548,11 +556,34 @@ export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
           <button
             className="btn btn-green"
             style={{ fontSize: 13, padding: "6px 16px" }}
-            onClick={startGenerate}
+            onClick={() => startGenerate()}
             disabled={generating}
           >
             {generating ? "Generating…" : "+ Generate New Exam"}
           </button>
+        </div>
+        <div className="card exam-generator-card">
+          <textarea
+            className="exam-generator-input"
+            value={generationPrompt}
+            onChange={(e) => setGenerationPrompt(e.target.value)}
+            placeholder="Example: Generate a 20-point exam that covers probability and random variables only."
+            disabled={generating}
+            maxLength={1200}
+          />
+          <div className="exam-preset-row">
+            {GENERATION_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                className="exam-preset-btn"
+                onClick={() => setGenerationPrompt(preset.prompt)}
+                disabled={generating}
+                type="button"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
         {genError && (
           <div style={{ color: "var(--red, #dc2626)", fontSize: 13, marginBottom: 12 }}>
@@ -565,7 +596,7 @@ export function Exam({ triggerGenerate, onGenerateConsumed }: ExamProps) {
         {sessions.length === 0 && !generating ? (
           <div className="card" style={{ padding: "28px 32px", maxWidth: 560 }}>
             <p style={{ margin: 0, color: "var(--ink-2)", fontSize: 14 }}>
-              No mock exams generated yet. Click <strong>+ Generate New Exam</strong> to get started.
+              No mock exams generated yet.
             </p>
           </div>
         ) : (

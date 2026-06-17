@@ -56,19 +56,24 @@ const PLACEHOLDERS: Record<Exclude<PageId, "dashboard" | "chat" | "exam" | "book
   results: { title: "Results", icon: "scale", blurb: "Dual-evaluator grading with discrepancy highlighting. Coming soon." },
 };
 
+interface GenerateRequest {
+  id: number;
+  prompt: string;
+}
+
 function renderPage(
   page: PageId,
   props: PageProps,
   onLogout: () => void,
   isAdmin: boolean,
-  onCommand: (cmd: string) => void,
-  triggerGenerate: boolean,
+  onCommand: (cmd: string, arg?: string) => void,
+  generateRequest: GenerateRequest | null,
   onGenerateConsumed: () => void,
   isDark: boolean,
 ): ReactNode {
   if (page === "dashboard") return <Dashboard navigate={props.navigate} />;
   if (page === "chat") return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} isDark={isDark} />;
-  if (page === "exam") return <Exam triggerGenerate={triggerGenerate} onGenerateConsumed={onGenerateConsumed} />;
+  if (page === "exam") return <Exam generateRequest={generateRequest} onGenerateConsumed={onGenerateConsumed} />;
   if (page === "books") return <Books />;
   if (page === "topics") return <Topics />;
   const p = PLACEHOLDERS[page as keyof typeof PLACEHOLDERS];
@@ -154,17 +159,19 @@ export default function App() {
     return isPageId(h) ? h : "dashboard";
   });
 
-  const [pendingGenerate, setPendingGenerate] = useState(false);
+  const [generateRequest, setGenerateRequest] = useState<GenerateRequest | null>(null);
 
   const navigate = (id: PageId) => {
     setPage(id);
     window.scrollTo({ top: 0 });
   };
 
-  const handleCommand = (cmd: string) => {
-    if (cmd === "generate") setPendingGenerate(true);
+  const handleCommand = (cmd: string, arg?: string) => {
+    if (cmd === "generate") {
+      setGenerateRequest((prev) => ({ id: (prev?.id ?? 0) + 1, prompt: arg?.trim() ?? "" }));
+    }
   };
-  const handleGenerateConsumed = () => setPendingGenerate(false);
+  const handleGenerateConsumed = () => setGenerateRequest(null);
 
   useEffect(() => {
     // Gated on token: while logged out, the URL hash may carry a
@@ -288,7 +295,7 @@ export default function App() {
       )}
 
       <main className={`main ${isChat ? "main-chat" : ""} ${isBooks ? "main-books" : ""}`}>
-        {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, pendingGenerate, handleGenerateConsumed, theme === "dark")}
+        {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, generateRequest, handleGenerateConsumed, theme === "dark")}
       </main>
 
       <nav className="tabbar">

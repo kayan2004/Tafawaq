@@ -43,7 +43,7 @@ interface Msg {
 interface Props {
   onLogout: () => void;
   isAdmin?: boolean;
-  onCommand?: (cmd: string) => void;
+  onCommand?: (cmd: string, arg?: string) => void;
   isDark?: boolean;
 }
 
@@ -245,12 +245,13 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
     if (text.startsWith("/")) {
       const cmd = text.slice(1).split(/\s+/)[0].toLowerCase();
       if (cmd === "generate") {
+        const generationPrompt = text.slice("/generate".length).trim();
         setMessages((prev) => [
           ...prev,
           { id: nextId(), role: "user", content: text, streaming: false },
           { id: nextId(), role: "assistant", content: "Sure! I've queued a new mock exam for you — head to the Exams tab whenever you're ready.", streaming: false },
         ]);
-        onCommand?.("generate");
+        onCommand?.("generate", generationPrompt);
         return;
       } else if (cmd === "exam") {
         openPicker();

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/exams", tags=["exams"])
 
 class GenerateRequest(BaseModel):
     session_type: SessionType = SessionType.mock_generated
+    prompt: str | None = Field(default=None, max_length=1200)
 
 
 @router.post("/generate")
@@ -32,6 +33,9 @@ async def generate_exam(
     redis: Redis = Depends(get_redis),
     secrets: AppSecrets = Depends(get_secrets),
 ):
+    if body.session_type != SessionType.mock_generated:
+        raise HTTPException(status_code=422, detail="Only mock exam generation is supported by this endpoint.")
+    prompt = body.prompt.strip() if body.prompt and body.prompt.strip() else None
     return StreamingResponse(
         exam_service.generate_exam(
             user_id=user.id,
@@ -39,6 +43,7 @@ async def generate_exam(
             db_session=db_session,
             redis=redis,
             session_type=body.session_type,
+            generation_prompt=prompt,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

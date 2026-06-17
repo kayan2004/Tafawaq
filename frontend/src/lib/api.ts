@@ -235,14 +235,19 @@ export async function getExamSession(token: string, sessionId: string): Promise<
 export async function generateExamStream(
   token: string,
   signal: AbortSignal,
+  prompt?: string,
 ): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+  const trimmedPrompt = prompt?.trim();
   const res = await fetch("/exams/generate", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ session_type: "mock_generated" }),
+    body: JSON.stringify({
+      session_type: "mock_generated",
+      prompt: trimmedPrompt || null,
+    }),
     signal,
   });
   if (!res.ok) {

@@ -7,7 +7,7 @@ import { Icons } from "../lib/icons";
 import type { IconName } from "../lib/icons";
 
 const SLASH_COMMANDS = [
-  { id: "generate", template: "/generate", arg: "topic",   icon: "spark" as IconName, desc: "Create a fresh mock exam on a chosen topic", chipMode: true  },
+  { id: "generate", template: "/generate", arg: "brief",   icon: "spark" as IconName, desc: "Create a fresh mock exam from your prompt", chipMode: true  },
   { id: "exam",     template: "/exam",     arg: "session", icon: "exam"  as IconName, desc: "Load an official past-exam session by year",  chipMode: false },
   { id: "retrieve", template: "/retrieve", arg: "topic",   icon: "book"  as IconName, desc: "Pull textbook pages and past questions",       chipMode: true  },
 ] as const;
