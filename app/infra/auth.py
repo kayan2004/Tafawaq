@@ -4,11 +4,12 @@ This module wires UserManager, JWTStrategy, and FastAPIUsers.
 The SQLAlchemy User model is UserORM in app/repositories/orm.py —
 NO ORM model is defined here (Constitution Principle I).
 """
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 from urllib.parse import urlparse
 import uuid
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Response
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import AuthenticationBackend, BearerTransport, JWTStrategy
 from fastapi_users.db import SQLAlchemyUserDatabase
@@ -52,6 +53,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[UserORM, uuid.UUID]):
 
     async def on_after_register(self, user: UserORM, request: Request | None = None):
         pass  # hook for post-registration logic (e.g. welcome email)
+
+    async def on_after_login(
+        self,
+        user: UserORM,
+        request: Request | None = None,
+        response: Response | None = None,
+    ) -> None:
+        await self.user_db.update(user, {"last_login": datetime.now(timezone.utc)})
 
     async def on_after_forgot_password(
         self, user: UserORM, token: str, request: Request | None = None
