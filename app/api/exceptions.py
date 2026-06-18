@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app.domain.exceptions import (
     ActiveSessionExists,
+    AdminFileNotFound,
+    AdminUserNotFound,
     AIServiceUnavailable,
     AnswerKeyNotFound,
     ConversationNotFound,
@@ -49,6 +51,8 @@ def _error(request: Request, status: int, message: str) -> JSONResponse:
 @app.exception_handler(OfficialExamNotFound)
 @app.exception_handler(OfficialExamPdfMissing)
 @app.exception_handler(UserDetailsNotFound)
+@app.exception_handler(AdminFileNotFound)
+@app.exception_handler(AdminUserNotFound)
 async def not_found_handler(request: Request, exc: LebaneseCoachError) -> JSONResponse:
     return _error(request, 404, str(exc) or "Resource not found.")
 

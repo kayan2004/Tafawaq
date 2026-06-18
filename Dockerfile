@@ -17,6 +17,7 @@ COPY alembic/ alembic/
 COPY alembic.ini alembic.ini
 COPY ingestion/ ingestion/
 COPY prompts/ prompts/
+COPY Math_GS_Exams_English/ Math_GS_Exams_English/
 
 # uv cache mount: wheels are reused across rebuilds. Hatchling needs app/ present to build the wheel.
 RUN --mount=type=cache,target=/root/.cache/uv \

@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Neutral grays */
+  --gray-0: #ffffff;
+  --gray-25: #fbfcfd;
+  --gray-50: #f5f7fa;
+  --gray-100: #eef1f6;
+  --gray-150: #e4e9f0;
+  --gray-200: #d7dee8;
+  --gray-300: #c2cbd9;
+  --gray-400: #97a3b6;
+  --gray-500: #6b7688;
+  --gray-600: #515b6b;
+  --gray-700: #3a4351;
+  --gray-800: #262d39;
+  --gray-900: #161b24;
+  --gray-950: #0e1218;
+
+  /* Light theme semantic aliases */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-3: #eef1f6;
+  --line: #e4e9f0;
+  --line-strong: #d7dee8;
+  --text: #1b2a4a;
+  --text-2: #515b6b;
+  --text-muted: #6b7688;
+  --text-faint: #97a3b6;
+  --overlay: rgba(17, 28, 51, 0.42);
+
+  --danger: #d8503c;
+  --danger-bg: #fceae6;
+  --danger-line: #f3c4ba;
+  --on-danger: #b03c2a;
+
+  --sidebar-bg: #151b22;
+
+  --shadow-xs: 0 1px 2px rgba(17, 28, 51, 0.05);
+  --shadow-sm: 0 1px 2px rgba(17, 28, 51, 0.05), 0 2px 6px rgba(17, 28, 51, 0.05);
+  --shadow-md: 0 4px 14px rgba(17, 28, 51, 0.08), 0 1px 4px rgba(17, 28, 51, 0.05);
+  --shadow-lg: 0 12px 34px rgba(17, 28, 51, 0.14), 0 4px 10px rgba(17, 28, 51, 0.07);
+
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --bg: #0e1218;
+  --surface: #151b25;
+  --surface-2: #1b2330;
+  --surface-3: #222c3c;
+  --line: #283242;
+  --line-strong: #36435a;
+  --text: #e8edf5;
+  --text-2: #aab5c7;
+  --text-muted: #7c8aa0;
+  --text-faint: #5d6a7e;
+  --overlay: rgba(0, 0, 0, 0.58);
+
+  --danger: #ef6a55;
+  --danger-bg: rgba(216, 80, 60, 0.16);
+  --danger-line: rgba(216, 80, 60, 0.36);
+  --on-danger: #ef8a78;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes tfw-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.tfw-pulse {
+  animation: tfw-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tfw-page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tfw-page-in {
+  animation: tfw-page-in 0.3s var(--ease);
+}
+
+@keyframes tfw-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.tfw-slide-in {
+  animation: tfw-slide-in 260ms var(--ease);
+}

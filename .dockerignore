@@ -7,10 +7,10 @@ __pycache__/
 .venv/
 venv/
 frontend/
+admin/
 specs/
 .specify/
 .claude/
 *.md
 .gitignore
 .dockerignore
-Math_GS_Exams_English/

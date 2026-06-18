@@ -50,6 +50,14 @@ class OfficialExamPdfMissing(LebaneseCoachError):
     """Official exam exists but has no PDF stored in MinIO."""
 
 
+class AdminFileNotFound(LebaneseCoachError):
+    """Ingestion trigger referenced a filename not present on disk."""
+
+
+class AdminUserNotFound(LebaneseCoachError):
+    """Admin action referenced a user id that does not exist."""
+
+
 # ── 409 Conflict ─────────────────────────────────────────────────────────────
 
 class ActiveSessionExists(LebaneseCoachError):

@@ -212,6 +212,16 @@ services:
       api:
         condition: service_started
 
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    ports:
+      - "5174:80"
+    depends_on:
+      api:
+        condition: service_started
+
   pgadmin:
     image: dpage/pgadmin4
     environment:
