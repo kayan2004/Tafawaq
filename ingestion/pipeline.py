@@ -113,6 +113,114 @@ def upload_pdfs(pdf_dir: str, minio_client: Minio) -> list[str]:
     return uploaded
 
 
+# ── Shared insert helpers (also used by app/services/admin_service.py) ────────
+
+
+async def insert_chunks(conn, chunks: list[dict]) -> int:
+    """Upsert past-exam chunks into pgvector. Returns the number of rows written."""
+    rows = [
+        (
+            _chunk_uuid(c["year"], c["session"], c["source_type"], c["exercise_id"]),
+            c["source_type"],
+            c["year"],
+            c["session"],
+            c["exercise_id"],
+            c["topic"],
+            c["subtopic"],
+            c["question_type"],
+            c["marks"],
+            c["content"],
+            c["embedding"],
+        )
+        for c in chunks
+    ]
+    await conn.executemany(
+        """
+        INSERT INTO chunks
+          (id, source_type, year, session, exercise_id, topic, subtopic,
+           question_type, marks, content, embedding)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        ON CONFLICT (id) DO UPDATE SET
+            topic         = EXCLUDED.topic,
+            subtopic      = EXCLUDED.subtopic,
+            question_type = EXCLUDED.question_type,
+            embedding     = EXCLUDED.embedding
+        """,
+        rows,
+    )
+    return len(rows)
+
+
+async def refresh_topic_stats(conn) -> int:
+    """Recompute topic_stats from ingested past_exam chunks. Returns total topic count.
+
+    appearances counts distinct (year, session) exam sittings, not raw chunk rows —
+    an exam with multiple exercises on the same topic must still count as one
+    appearance, matching the frequency tiers in app/services/topic_service.py.
+    """
+    await conn.execute(
+        """
+        INSERT INTO topic_stats
+          (id, topic, appearances, last_seen_year, last_seen_session)
+        SELECT
+            gen_random_uuid(),
+            topic,
+            COUNT(DISTINCT (year, session)),
+            MAX(year),
+            MAX(session)
+        FROM chunks
+        WHERE source_type = 'past_exam'
+        GROUP BY topic
+        ON CONFLICT (topic) DO UPDATE
+          SET appearances       = EXCLUDED.appearances,
+              last_seen_year    = EXCLUDED.last_seen_year,
+              last_seen_session = EXCLUDED.last_seen_session
+        """
+    )
+    return await conn.fetchval("SELECT COUNT(*) FROM topic_stats")
+
+
+async def retag_chunks(conn) -> list[dict]:
+    """Recompute topic for every already-ingested past_exam/answer_key chunk.
+
+    Reuses tag_chunks() — the same deterministic tagger applied during
+    ingestion — against rows already in the DB. Makes no Claude/Voyage calls
+    and does not write anything; callers apply the returned diff via
+    apply_retag(). Each entry: id, source_type, year, session, exercise_id,
+    old_topic, new_topic.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT id, source_type, year, session, exercise_id, content, topic
+        FROM chunks
+        WHERE source_type IN ('past_exam', 'answer_key')
+        """
+    )
+    chunks = [dict(r) for r in rows]
+    tag_chunks(chunks)
+    return [
+        {
+            "id": before["id"],
+            "source_type": before["source_type"],
+            "year": before["year"],
+            "session": before["session"],
+            "exercise_id": before["exercise_id"],
+            "old_topic": before["topic"],
+            "new_topic": after["topic"],
+        }
+        for before, after in zip(rows, chunks)
+        if before["topic"] != after["topic"]
+    ]
+
+
+async def apply_retag(conn, changes: list[dict]) -> None:
+    """Write topic changes computed by retag_chunks() to the chunks table."""
+    await conn.executemany(
+        "UPDATE chunks SET topic = $1 WHERE id = $2",
+        [(c["new_topic"], c["id"]) for c in changes],
+    )
+
+
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 
@@ -200,62 +308,12 @@ async def run_pipeline(
     await pgvector.asyncpg.register_vector(conn)
 
     try:
-        rows = [
-            (
-                _chunk_uuid(c["year"], c["session"], c["source_type"], c["exercise_id"]),
-                c["source_type"],
-                c["year"],
-                c["session"],
-                c["exercise_id"],
-                c["topic"],
-                c["subtopic"],
-                c["question_type"],
-                c["marks"],
-                c["content"],
-                c["embedding"],
-            )
-            for c in all_chunks
-        ]
-        await conn.executemany(
-            """
-            INSERT INTO chunks
-              (id, source_type, year, session, exercise_id, topic, subtopic,
-               question_type, marks, content, embedding)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            ON CONFLICT (id) DO UPDATE SET
-                topic         = EXCLUDED.topic,
-                subtopic      = EXCLUDED.subtopic,
-                question_type = EXCLUDED.question_type,
-                embedding     = EXCLUDED.embedding
-            """,
-            rows,
-        )
-        print(f"[ingestion] Upserted {len(rows)} chunk rows")
+        n = await insert_chunks(conn, all_chunks)
+        print(f"[ingestion] Upserted {n} chunk rows")
 
-        # Derive topic_stats from ingested question chunks
-        await conn.execute(
-            """
-            INSERT INTO topic_stats
-              (id, topic, subtopic, appearances, last_seen_year, last_seen_session)
-            SELECT
-                gen_random_uuid(),
-                topic,
-                MAX(subtopic),
-                COUNT(*),
-                MAX(year),
-                MAX(session)
-            FROM chunks
-            WHERE source_type = 'past_exam'
-            GROUP BY topic
-            ON CONFLICT (topic) DO UPDATE
-              SET appearances       = EXCLUDED.appearances,
-                  last_seen_year    = EXCLUDED.last_seen_year,
-                  last_seen_session = EXCLUDED.last_seen_session
-            """
-        )
-        topic_count = await conn.fetchval("SELECT COUNT(*) FROM topic_stats")
+        topic_count = await refresh_topic_stats(conn)
         print(f"[ingestion] Updated topic_stats ({topic_count} topics)")
-        print(f"[ingestion] Complete: {len(rows)} chunks, {topic_count} topics")
+        print(f"[ingestion] Complete: {n} chunks, {topic_count} topics")
 
         # Clear checkpoints only after a fully successful DB write
         _clear_cache()

@@ -6,14 +6,9 @@ No LLM calls — fully rule-based. Two-layer tagger:
   2. KEYWORD PASS: scan body text for explicit keyword → chapter-id associations.
 
 Writes app/data/question_tags.json (ground truth; the embedding pipeline must
-never overwrite this file) and optionally upserts aggregated stats into the
-topic_stats DB table.
-
-NOTE: the existing embedding pipeline (pipeline.py) also upserts topic_stats
-using free-form LLM topic strings.  Rows written by this pipeline use chapter
-titles from curriculum.json, so they coexist with — but may differ in wording
-from — rows written by the embedding pipeline.  Both sets of rows share the
-same unique constraint on `topic`.
+never overwrite this file). topic_stats is NOT written here — pipeline.py's
+refresh_topic_stats() is the sole owner of that table; this script only
+produces the per-unit chapter_ids ground truth.
 
 Usage:
     # Read chunks from DB (default — runs against local dev DB):
@@ -34,7 +29,6 @@ import asyncio
 import json
 import logging
 import re
-import uuid
 from collections import defaultdict
 from pathlib import Path
 
@@ -45,9 +39,6 @@ logger = logging.getLogger(__name__)
 _REPO_ROOT = Path(__file__).parent.parent
 _CURRICULUM_PATH = _REPO_ROOT / "app" / "data" / "curriculum.json"
 _DEFAULT_OUTPUT = _REPO_ROOT / "app" / "data" / "question_tags.json"
-
-# Stable namespace for deterministic topic_stats UUIDs — never change.
-_TOPIC_UUID_NS = uuid.UUID("f0e1d2c3-b4a5-9678-ef01-234567890abc")
 
 # ── Header normalization ───────────────────────────────────────────────────────
 
@@ -202,6 +193,8 @@ _KEYWORD_MAP: dict[str, int] = {
     "distance from a point to a plane": 1,
     "distance from a point to a line": 1,
     "orthogonality of": 1,
+    "space is referred to": 1,
+    "space referred to": 1,
     # ── Ch 2: Continuous Functions on an Interval ─────────────────────────────
     "intermediate value theorem": 2,
     "intermediate value": 2,
@@ -267,6 +260,7 @@ _KEYWORD_MAP: dict[str, int] = {
     "bounded sequence": 9,
     "limit of a sequence": 9,
     "convergent sequence": 9,
+    "consider the sequence": 9,
     # ── Ch 10: Definite Integral — Definition and Properties ──────────────────
     "linearity of the integral": 10,
     "from integral to antiderivative": 10,
@@ -321,6 +315,11 @@ _KEYWORD_MAP: dict[str, int] = {
     "p(a|b)": 17,
     "p(a/b)": 17,
     "bayes": 17,
+    "an urn": 17,
+    "two urns": 17,
+    "a bag": 17,
+    "contains cards": 17,
+    "fair die": 17,
     # ── Ch 18: Random Variables ───────────────────────────────────────────────
     "random variable": 18,
     "probability distribution": 18,
@@ -460,40 +459,6 @@ def write_tags(tags: list[dict], output_path: Path) -> None:
 # ── Aggregation ────────────────────────────────────────────────────────────────
 
 
-def compute_topic_stats(
-    tags: list[dict], taxonomy: dict[int, str]
-) -> list[dict]:
-    """Aggregate tags into topic_stats rows using binary presence per exam.
-
-    For each chapter: appearances = number of distinct (year, session) pairs
-    where at least one unit was tagged with that chapter.  Chapter 0 is excluded.
-    """
-    # chapter_id → set of (year, session) pairs
-    chapter_exams: dict[int, set[tuple[int, int]]] = defaultdict(set)
-    for tag in tags:
-        exam_key = (tag["year"], tag["session"])
-        for ch_id in tag["chapter_ids"]:
-            if ch_id != 0:
-                chapter_exams[ch_id].add(exam_key)
-
-    rows: list[dict] = []
-    for ch_id in sorted(chapter_exams):
-        title = taxonomy.get(ch_id, f"Chapter {ch_id}")
-        exams = chapter_exams[ch_id]
-        last_year, last_session = max(exams, key=lambda x: (x[0], x[1]))
-        rows.append(
-            {
-                "id": str(uuid.uuid5(_TOPIC_UUID_NS, title)),
-                "topic": title,
-                "subtopic": "",
-                "appearances": len(exams),
-                "last_seen_year": last_year,
-                "last_seen_session": last_session,
-            }
-        )
-    return rows
-
-
 async def fetch_chunks_from_db(db_url: str) -> list[dict]:
     """Return all past_exam chunks from the chunks table as plain dicts."""
     pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
@@ -517,40 +482,6 @@ async def fetch_chunks_from_db(db_url: str) -> list[dict]:
             }
             for row in rows
         ]
-    finally:
-        await conn.close()
-
-
-async def upsert_topic_stats(stats: list[dict], db_url: str) -> None:
-    """Upsert topic_stats rows into PostgreSQL.  Idempotent — safe to rerun."""
-    pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
-    conn = await asyncpg.connect(pg_url)
-    try:
-        rows = [
-            (
-                uuid.UUID(s["id"]),
-                s["topic"],
-                s["subtopic"],
-                s["appearances"],
-                s["last_seen_year"],
-                s["last_seen_session"],
-            )
-            for s in stats
-        ]
-        await conn.executemany(
-            """
-            INSERT INTO topic_stats
-              (id, topic, subtopic, appearances, last_seen_year, last_seen_session)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (topic) DO UPDATE SET
-                subtopic          = EXCLUDED.subtopic,
-                appearances       = EXCLUDED.appearances,
-                last_seen_year    = EXCLUDED.last_seen_year,
-                last_seen_session = EXCLUDED.last_seen_session
-            """,
-            rows,
-        )
-        logger.info("Upserted %d rows into topic_stats", len(rows))
     finally:
         await conn.close()
 
@@ -668,10 +599,6 @@ def main() -> None:
 
     output_path = Path(args.output)
     write_tags(tags, output_path)
-
-    stats = compute_topic_stats(tags, taxonomy)
-    asyncio.run(upsert_topic_stats(stats, args.db_url))
-    logger.info("Aggregated %d chapters across %d units", len(stats), len(tags))
 
     print_coverage_report(tags, taxonomy)
 

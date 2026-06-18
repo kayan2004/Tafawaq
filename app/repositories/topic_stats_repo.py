@@ -4,7 +4,6 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import TopicNotFound
 from app.repositories.orm import ChunkORM, TopicStatsORM
 
 
@@ -22,12 +21,13 @@ async def get_questions_by_topic(
     year_to: int | None = None,
     question_type: str | None = None,
     limit: int = 50,
-) -> list[ChunkORM]:
+) -> list[ChunkORM] | None:
+    """Returns None if the topic doesn't exist in topic_stats, else the matching chunks."""
     stat_row = await session.execute(
         select(TopicStatsORM).where(TopicStatsORM.topic == topic)
     )
     if stat_row.scalars().first() is None:
-        raise TopicNotFound(f"Topic '{topic}' not found in the exam archive.")
+        return None
 
     stmt = (
         select(ChunkORM)

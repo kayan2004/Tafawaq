@@ -215,7 +215,6 @@ class TopicStatsORM(Base):
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
     topic: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    subtopic: Mapped[str] = mapped_column(String(100), nullable=False)
     appearances: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_seen_year: Mapped[int] = mapped_column(Integer, nullable=False)
     last_seen_session: Mapped[int] = mapped_column(Integer, nullable=False)

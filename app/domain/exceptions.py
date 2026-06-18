@@ -1,6 +1,7 @@
 """Domain exception hierarchy.
 
-All exceptions are raised by services and repositories only.
+All exceptions are raised by services only — repositories are SQL-only and
+must not import from this module (see CLAUDE.md directory ownership rules).
 HTTP status mapping lives exclusively in app/api/exceptions.py.
 """
 from uuid import UUID

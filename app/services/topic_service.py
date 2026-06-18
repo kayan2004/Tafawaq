@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.exceptions import TopicNotFound
 from app.domain.models import PastQuestion, TopicStat
 from app.repositories import chunk_repo, topic_stats_repo
 
@@ -42,10 +43,11 @@ async def get_questions_by_topic(
     question_type: str | None,
     limit: int,
 ) -> list[PastQuestion]:
-    # Raises TopicNotFound if topic absent — propagates to 404 handler
     orm_rows = await topic_stats_repo.get_questions_by_topic(
         session, topic, year_from, year_to, question_type, limit
     )
+    if orm_rows is None:
+        raise TopicNotFound(f"Topic '{topic}' not found in the exam archive.")
 
     questions: list[PastQuestion] = []
     for row in orm_rows:
