@@ -19,6 +19,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -53,7 +54,9 @@ class ConversationORM(Base):
     __tablename__ = "conversations"
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     # NULL for exam-session conversations; named subject for chat (e.g. "math_gs12").
     subject: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # User-set title; NULL means auto-name by date on the frontend.
@@ -69,6 +72,9 @@ class ConversationORM(Base):
 
 class MessageORM(Base):
     __tablename__ = "messages"
+    __table_args__ = (
+        Index("ix_messages_conversation_id_created_at", "conversation_id", "created_at"),
+    )
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
     conversation_id: Mapped[UUID] = mapped_column(
@@ -91,7 +97,9 @@ class ExamSessionORM(Base):
     conversation_id: Mapped[UUID] = mapped_column(
         SAUUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False
     )
-    user_id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     session_type: Mapped[SessionType] = mapped_column(SAEnum(SessionType), nullable=False)
     exam_content: Mapped[dict] = mapped_column(JSONB, nullable=False)
     answer_key: Mapped[dict] = mapped_column(JSONB, nullable=False)
@@ -109,9 +117,11 @@ class ExamResultORM(Base):
 
     id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), primary_key=True, default=uuid4)
     session_id: Mapped[UUID] = mapped_column(
-        SAUUID(as_uuid=True), ForeignKey("exam_sessions.id"), nullable=False
+        SAUUID(as_uuid=True), ForeignKey("exam_sessions.id"), nullable=False, index=True
     )
-    user_id: Mapped[UUID] = mapped_column(SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        SAUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
     student_answers: Mapped[dict] = mapped_column(JSONB, nullable=False)
     evaluator_1: Mapped[dict] = mapped_column(JSONB, nullable=False)
     evaluator_2: Mapped[dict] = mapped_column(JSONB, nullable=False)
