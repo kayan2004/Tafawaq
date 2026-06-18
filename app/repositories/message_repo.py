@@ -170,7 +170,7 @@ async def get_messages(
     conversation_id: UUID,
     limit: int = 20,
 ) -> list[MessageORM]:
-    """Return up to `limit` messages, excluding any sent before cleared_at."""
+    """Return the most recent `limit` messages, oldest first, excluding any sent before cleared_at."""
     conv_result = await session.execute(
         select(ConversationORM).where(ConversationORM.id == conversation_id)
     )
@@ -181,6 +181,6 @@ async def get_messages(
         query = query.where(MessageORM.created_at > conv.cleared_at)
 
     result = await session.execute(
-        query.order_by(MessageORM.created_at.asc()).limit(limit)
+        query.order_by(MessageORM.created_at.desc()).limit(limit)
     )
-    return list(result.scalars())
+    return list(reversed(result.scalars().all()))
