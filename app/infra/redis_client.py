@@ -23,17 +23,6 @@ async def set_session(redis: Redis, session_id: str, data: dict[str, Any]) -> No
     await redis.set(f"session:{session_id}", json.dumps(data), ex=SESSION_TTL)
 
 
-async def get_session(redis: Redis, session_id: str) -> dict[str, Any] | None:
-    raw = await redis.get(f"session:{session_id}")
-    if raw is None:
-        return None
-    return json.loads(raw)
-
-
-async def delete_session(redis: Redis, session_id: str) -> None:
-    await redis.delete(f"session:{session_id}")
-
-
 # ── Guardrails helpers ────────────────────────────────────────────────────────
 
 async def get_guardrails_counter(redis: Redis, session_id: str) -> int:

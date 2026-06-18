@@ -107,7 +107,6 @@ class ExamSessionORM(Base):
         SAEnum(SessionStatus), nullable=False, default=SessionStatus.in_progress
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 # ── Exam Results (permanent — no expires_at per FR-025) ──────────────────────

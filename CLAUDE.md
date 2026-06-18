@@ -140,15 +140,15 @@ These are hardcoded in `infra/llm/claude.py`. Do not change without checking emb
 | `users` | fastapi-users base + created_at, last_login | |
 | `conversations` | user_id FK | |
 | `messages` | conversation_id FK, role enum, guardrails_score nullable | |
-| `exam_sessions` | user_id, session_type, exam_content JSONB, answer_key JSONB, status, expires_at | TTL = 3 hours from creation |
+| `exam_sessions` | user_id, session_type, exam_content JSONB, answer_key JSONB, status | Permanent — no expires_at |
 | `exam_results` | session_id, evaluator_1/2 JSONB, total_score_1/2, discrepancy_flagged | Permanent — no expires_at |
 | `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable | Shared table for past_exam + answer_key source types — textbook content is no longer chunked/embedded, see `textbook_pages` |
 | `textbook_pages` | page_number (unique), chapter, section, page_type, content | Raw page store; looked up directly by page_number, not joined from `chunks` |
 | `topic_stats` | topic (unique), appearances, last_seen_year | Zero-LLM analytics |
 
-### Redis keys (TTL: 3 hours)
-- `guardrails:{conversation_id}` → off-topic message counter (int)
-- `session:{session_id}` → `{"answer_key": {...}}` — mirrors DB answer_key for fast grading lookup
+### Redis keys
+- `guardrails:{conversation_id}` → off-topic message counter (int), TTL 3 hours
+- `session:{session_id}` → `{"answer_key": {...}}` — written on exam creation (TTL 3 hours), mirrors `exam_sessions.answer_key`; not currently read back by any code path (grading reads the answer key from Postgres directly)
 
 ---
 

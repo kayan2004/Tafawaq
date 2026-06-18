@@ -1,7 +1,6 @@
 """Exam session and result CRUD — SQLAlchemy AsyncSession."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -9,8 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import SessionStatus, SessionType
 from app.repositories.orm import ExamResultORM, ExamSessionORM
-
-_FAR_FUTURE = datetime(2099, 12, 31, tzinfo=timezone.utc)
 
 
 async def create_session(
@@ -28,7 +25,6 @@ async def create_session(
         exam_content=exam_content,
         answer_key=answer_key,
         status=SessionStatus.in_progress,
-        expires_at=_FAR_FUTURE,
     )
     session.add(row)
     await session.flush()   # resolve FK before caller commits
