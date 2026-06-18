@@ -381,9 +381,6 @@ export function Chat({ onLogout, isAdmin = false, onCommand, isDark = true }: Pr
             const pn = payload.page_number as number;
             const sec = payload.section as string | undefined;
             resolveToolLabel(sec ? `Retrieved textbook page ${pn} — ${sec}` : `Retrieved textbook page ${pn}`);
-          } else if (event === "textbook_sections") {
-            const secs = payload.sections as unknown[];
-            resolveToolLabel(`Retrieved ${secs.length} relevant textbook section${secs.length !== 1 ? "s" : ""}`);
           } else if (event === "guardrail_block") {
             finishMsg(payload.message as string);
             done = true;

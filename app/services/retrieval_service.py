@@ -1,16 +1,14 @@
-"""Retrieval service — semantic search over past exam chunks and textbook sections."""
+"""Retrieval service — semantic search over past exam chunks."""
 from __future__ import annotations
 
 import asyncio
 
 import asyncpg
 
-from app.domain.models import PastQuestion, TextbookSection
+from app.domain.models import PastQuestion
 from app.infra.embeddings.voyage import embed_text
 from app.infra.vault import AppSecrets
 from app.repositories import chunk_repo
-
-_TEXTBOOK_SOURCE_TYPES = ["textbook_theory", "textbook_exercise", "textbook_self_evaluation"]
 
 
 async def retrieve_past_questions(
@@ -52,40 +50,3 @@ async def retrieve_past_questions(
             )
         )
     return questions
-
-
-async def retrieve_textbook_sections(
-    query: str,
-    source_types: list[str] | None,
-    limit: int,
-    secrets: AppSecrets,
-    conn: asyncpg.Connection,
-) -> list[TextbookSection]:
-    embedding = await asyncio.to_thread(embed_text, query, secrets.voyage_api_key)
-
-    effective_source_types = source_types or _TEXTBOOK_SOURCE_TYPES
-    rows = await chunk_repo.cosine_similarity_search(
-        conn, embedding,
-        topic=None,
-        question_type=None,
-        year_from=None,
-        year_to=None,
-        limit=limit,
-        source_types=effective_source_types,
-    )
-
-    return [
-        TextbookSection(
-            chunk_id=row["id"],
-            chapter=row["chapter"] or "",
-            section=row["section"] or "",
-            topic=row["topic"],
-            subtopic=row["subtopic"],
-            source_type=row["source_type"],
-            page_start=row["page_start"],
-            page_end=row["page_end"],
-            content=row["content"],
-            similarity=float(row["similarity"]),
-        )
-        for row in rows
-    ]

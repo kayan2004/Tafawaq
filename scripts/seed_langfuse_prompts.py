@@ -66,7 +66,6 @@ STATIC_PROMPT_NAMES: dict[tuple[str, str], str] = {
     # ── Visibility only (not fetched at runtime) ────────────────────────────────
     ("math/official_exam_parsing", "SYSTEM_PROMPT"): "official_exam_parsing_system_prompt",
     ("math/official_exam_parsing", "EXTRACTION_SYSTEM_PROMPT"): "official_exam_parsing_extraction_system_prompt",
-    ("math/tagging_textbook", "TAG_PROMPT"): "tagging_textbook_tag_prompt",
     ("math/tagging_past_exams", "TAG_PROMPT"): "tagging_past_exams_tag_prompt",
 }
 

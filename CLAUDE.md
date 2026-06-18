@@ -70,11 +70,10 @@ prompts/
     ├── exam_generation.py   build_generation_system_prompt, VALIDATOR_SYSTEM_PROMPT, REGENERATE_SYSTEM_PROMPT
     ├── grading.py           PERSONA_INSTRUCTIONS, build_pdf_evaluator_prompt
     ├── official_exam_parsing.py  SYSTEM_PROMPT, EXTRACTION_SYSTEM_PROMPT, parse_exam_response
-    ├── tagging_textbook.py  TAG_PROMPT (ingestion only)
     └── tagging_past_exams.py  TAG_PROMPT (ingestion only)
 
 ingestion/
-├── textbook_pipeline.py      Offline CLI: markdown → parse → chunk → tag → embed → pgvector
+├── textbook_pipeline.py      Offline CLI: markdown → parse → textbook_pages (no chunking/tagging/embedding)
 │                             Run: uv run python -m ingestion.textbook_pipeline --textbook-dir textbook/
 └── official_exam_pipeline.py  PDF → Claude extraction → PostgreSQL + MinIO
 
@@ -128,10 +127,9 @@ specs/
 | Exam generation | `claude-sonnet-4-5` |
 | Dual evaluator (both) | `claude-sonnet-4-5` |
 | Chat | `claude-sonnet-4-5` |
-| Textbook tagging (ingestion only) | `claude-haiku-4-5-20251001` |
 | Embeddings | `voyage-large-2` (1536d) |
 
-These are hardcoded in `infra/llm/claude.py` and `ingestion/textbook_pipeline.py`. Do not change without checking embedding dimension compatibility.
+These are hardcoded in `infra/llm/claude.py`. Do not change without checking embedding dimension compatibility.
 
 ---
 
@@ -144,7 +142,7 @@ These are hardcoded in `infra/llm/claude.py` and `ingestion/textbook_pipeline.py
 | `messages` | conversation_id FK, role enum, guardrails_score nullable | |
 | `exam_sessions` | user_id, session_type, exam_content JSONB, answer_key JSONB, status, expires_at | TTL = 3 hours from creation |
 | `exam_results` | session_id, evaluator_1/2 JSONB, total_score_1/2, discrepancy_flagged | Permanent — no expires_at |
-| `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable (NULL for textbook), page_start/page_end nullable (NULL for past exams) | Shared table for past_exam + answer_key + textbook_* source types |
+| `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable, page_start/page_end nullable | Shared table for past_exam + answer_key source types — textbook content is no longer chunked/embedded, see `textbook_pages` |
 | `textbook_pages` | page_number (unique), chapter, section, page_type, content | Raw page store; chunks join on page_start = page_number |
 | `topic_stats` | topic (unique), appearances, last_seen_year | Zero-LLM analytics |
 
@@ -161,7 +159,6 @@ Emitted by `POST /chat`:
 - `token` — streaming text chunk
 - `tool_use` — internal only, not forwarded to client
 - `textbook_page` — LLM retrieved a specific page
-- `textbook_sections` — LLM retrieved textbook sections
 - `guardrail_warning` — counter == 2
 - `guardrail_block` — counter >= 3 (message blocked, stream ends)
 - `done` / `[DONE]`
@@ -172,7 +169,7 @@ Guardrail tiers: 0–1 messages = normal, 2 = warning suffix appended, 3+ = bloc
 
 ## Chat tools (active in `_CHAT_TOOLS`)
 
-Only two tools are active in chat: `retrieve_textbook_page` and `retrieve_textbook_sections`.  
+Only one tool is active in chat: `retrieve_textbook_page` (direct page-number lookup against `textbook_pages` — no embeddings involved).
 The other three tools (`retrieve_past_questions`, `retrieve_answer_key`, `get_topic_stats`) are defined in `tools.py` but NOT included in `_CHAT_TOOLS`. They are available for future activation.
 
 ---
@@ -216,9 +213,7 @@ Textbook input: markdown files in `textbook/` with YAML frontmatter per page, pa
 
 Required frontmatter fields: `page` (int), `chapter`, `section`, `type` (theory | exercise | self_evaluation | mixed | blank | preface | just_for_fun).
 
-Chunk UUID is deterministic: `uuid5(NAMESPACE_OID, f"{source_type}:{page_start}:{page_end}")` — idempotent on re-run.
-
-Past exam ingestion pipeline (`ingestion/pipeline.py` in spec 001) is not yet written — only the textbook pipeline exists.
+Textbook ingestion only parses pages into `textbook_pages` (upsert on `page_number`, idempotent on re-run) — it does not chunk, tag, or embed. Retrieval over textbook content is page-number lookup only (`retrieve_textbook_page`), not semantic search.
 
 ---
 

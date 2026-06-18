@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.enums import MessageRole
 from app.infra import langfuse_client
 from app.infra.llm.claude import call_claude, call_claude_vision, stream_claude
-from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL
+from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL
 from app.infra.vault import AppSecrets
 from app.repositories import exam_repo, message_repo, textbook_repo
 from app.services import guardrails_service, retrieval_service
@@ -27,7 +27,7 @@ from prompts.math.chat import WARNING_SUFFIX as _WARNING_SUFFIX
 from prompts.math.chat import build_chat_system_prompt as _build_chat_system_prompt_fn
 from prompts.shared.chat import build_retrieve_user_message as _build_retrieve_user_message
 
-_CHAT_TOOLS = [RETRIEVE_TEXTBOOK_PAGE_TOOL, RETRIEVE_TEXTBOOK_SECTIONS_TOOL]
+_CHAT_TOOLS = [RETRIEVE_TEXTBOOK_PAGE_TOOL]
 
 _RETRIEVE_PREFIX = "/retrieve "
 
@@ -299,49 +299,6 @@ async def handle_turn(
                         result_content = json.dumps(
                             {"error": f"Page {page_number} not found in the textbook."}
                         )
-                elif tu["name"] == "retrieve_textbook_sections":
-                    query = tu["input"].get("query", "")
-                    source_types_arg = tu["input"].get("source_types")
-                    limit_arg = int(tu["input"].get("limit", 5))
-                    sections = await retrieval_service.retrieve_textbook_sections(
-                        query=query,
-                        source_types=source_types_arg,
-                        limit=limit_arg,
-                        secrets=secrets,
-                        conn=conn,
-                    )
-                    if sections:
-                        sections_meta = [
-                            {
-                                "chunk_id": str(s.chunk_id),
-                                "chapter": s.chapter,
-                                "section": s.section,
-                                "source_type": s.source_type,
-                                "page_start": s.page_start,
-                                "page_end": s.page_end,
-                            }
-                            for s in sections
-                        ]
-                        yield f"data: {json.dumps({'event': 'textbook_sections', 'sections': sections_meta})}\n\n"
-                        result_content = json.dumps({
-                            "sections": [
-                                {
-                                    "chunk_id": str(s.chunk_id),
-                                    "chapter": s.chapter,
-                                    "section": s.section,
-                                    "source_type": s.source_type,
-                                    "page_start": s.page_start,
-                                    "page_end": s.page_end,
-                                    "topic": s.topic,
-                                    "subtopic": s.subtopic,
-                                    "content": s.content,
-                                    "similarity": s.similarity,
-                                }
-                                for s in sections
-                            ]
-                        })
-                    else:
-                        result_content = json.dumps({"sections": []})
                 else:
                     result_content = json.dumps({"error": f"Unknown tool: {tu['name']}"})
                 tool_results.append({
