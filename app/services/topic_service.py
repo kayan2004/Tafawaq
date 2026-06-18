@@ -61,7 +61,6 @@ async def get_questions_by_topic(
                 session=row.session,
                 exercise_id=row.exercise_id,
                 topic=row.topic,
-                subtopic=row.subtopic,
                 question_type=row.question_type,
                 marks=row.marks,
                 content=row.content,

@@ -148,15 +148,11 @@ class ChunkORM(Base):
     # with source_type='answer_key' is the answer key for source_type='past_exam'.
     exercise_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     topic: Mapped[str] = mapped_column(String(100), nullable=False)
-    subtopic: Mapped[str] = mapped_column(String(100), nullable=False)
     question_type: Mapped[QuestionType | None] = mapped_column(SAEnum(QuestionType), nullable=True)
     marks: Mapped[float | None] = mapped_column(Float, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[Vector] = mapped_column(Vector(1536), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    # NULL for past-exam/answer-key chunks; set for textbook chunks
-    page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    page_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 # ── Textbook Pages ───────────────────────────────────────────────────────────

@@ -126,7 +126,6 @@ async def insert_chunks(conn, chunks: list[dict]) -> int:
             c["session"],
             c["exercise_id"],
             c["topic"],
-            c["subtopic"],
             c["question_type"],
             c["marks"],
             c["content"],
@@ -137,12 +136,11 @@ async def insert_chunks(conn, chunks: list[dict]) -> int:
     await conn.executemany(
         """
         INSERT INTO chunks
-          (id, source_type, year, session, exercise_id, topic, subtopic,
+          (id, source_type, year, session, exercise_id, topic,
            question_type, marks, content, embedding)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         ON CONFLICT (id) DO UPDATE SET
             topic         = EXCLUDED.topic,
-            subtopic      = EXCLUDED.subtopic,
             question_type = EXCLUDED.question_type,
             embedding     = EXCLUDED.embedding
         """,

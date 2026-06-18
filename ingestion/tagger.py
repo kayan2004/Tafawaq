@@ -33,7 +33,7 @@ def tag_chunks(
     api_key: str = "",
     progress_file: Path | None = None,
 ) -> list[dict]:
-    """Tag each chunk with topic, subtopic, and question_type deterministically.
+    """Tag each chunk with topic and question_type deterministically.
 
     Only past_exam chunks receive a topic derived from the curriculum taxonomy.
     answer_key chunks inherit the topic of their matching past_exam exercise
@@ -70,7 +70,6 @@ def tag_chunks(
         else:
             chunk.setdefault("topic", "Unknown")
 
-        chunk.setdefault("subtopic", "")
         chunk.setdefault("question_type", "calculation")
 
     logger.info(

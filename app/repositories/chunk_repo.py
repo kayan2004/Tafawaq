@@ -29,17 +29,11 @@ async def cosine_similarity_search(
             c.session,
             c.exercise_id,
             c.topic,
-            c.subtopic,
             c.question_type,
             c.marks,
             c.content,
-            c.page_start,
-            c.page_end,
-            tp.chapter,
-            tp.section,
             1 - (c.embedding <=> $1::vector) AS similarity
         FROM chunks c
-        LEFT JOIN textbook_pages tp ON tp.page_number = c.page_start
         WHERE ($2::text[] IS NULL OR c.source_type = ANY($2::text[]))
           AND ($3::text IS NULL OR c.topic ILIKE $3)
           AND ($4::text IS NULL OR c.question_type::text = $4)

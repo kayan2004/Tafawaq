@@ -95,7 +95,6 @@ class PastQuestion(BaseModel):
     session: int
     exercise_id: int
     topic: str
-    subtopic: str
     question_type: str
     marks: float
     content: str

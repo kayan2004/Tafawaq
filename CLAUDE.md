@@ -142,8 +142,8 @@ These are hardcoded in `infra/llm/claude.py`. Do not change without checking emb
 | `messages` | conversation_id FK, role enum, guardrails_score nullable | |
 | `exam_sessions` | user_id, session_type, exam_content JSONB, answer_key JSONB, status, expires_at | TTL = 3 hours from creation |
 | `exam_results` | session_id, evaluator_1/2 JSONB, total_score_1/2, discrepancy_flagged | Permanent — no expires_at |
-| `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable, page_start/page_end nullable | Shared table for past_exam + answer_key source types — textbook content is no longer chunked/embedded, see `textbook_pages` |
-| `textbook_pages` | page_number (unique), chapter, section, page_type, content | Raw page store; chunks join on page_start = page_number |
+| `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable | Shared table for past_exam + answer_key source types — textbook content is no longer chunked/embedded, see `textbook_pages` |
+| `textbook_pages` | page_number (unique), chapter, section, page_type, content | Raw page store; looked up directly by page_number, not joined from `chunks` |
 | `topic_stats` | topic (unique), appearances, last_seen_year | Zero-LLM analytics |
 
 ### Redis keys (TTL: 3 hours)
