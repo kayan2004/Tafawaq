@@ -11,7 +11,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import SessionStatus, SessionType
+from app.domain.enums import GuardrailCategory, GuardrailDirection, GuardrailLevel, GuardrailSource, SessionStatus, SessionType
 from app.domain.exceptions import ExamNotFound, ExtractionFailed
 from app.domain.models import AnswerKey, ExamContent, ExamSession
 from app.infra import langfuse_client
@@ -19,6 +19,7 @@ from app.infra.llm.claude import call_claude, call_claude_vision
 from app.infra.redis_client import set_session
 from app.infra.vault import AppSecrets
 from app.repositories import exam_repo, message_repo
+from app.services import guardrails_service
 
 from prompts.math.exam_generation import (
     REGENERATE_SYSTEM_PROMPT as _REGENERATE_SYSTEM,
@@ -346,6 +347,25 @@ async def generate_exam(
     session_type: SessionType = SessionType.mock_generated,
     generation_prompt: str | None = None,
 ) -> AsyncGenerator[str, None]:
+    if generation_prompt:
+        verdict = await guardrails_service.classify_input(generation_prompt)
+        if verdict.category in (GuardrailCategory.prompt_injection, GuardrailCategory.harmful_content):
+            await guardrails_service.log_event(
+                db_session,
+                user_id=user_id,
+                conversation_id=None,
+                source=GuardrailSource.exam_generation,
+                direction=GuardrailDirection.input,
+                category=verdict.category,
+                level=GuardrailLevel.blocked,
+                score=verdict.score,
+                reason=verdict.reason,
+                text=generation_prompt,
+            )
+            await db_session.commit()
+            yield f"data: {json.dumps({'event': 'error', 'message': 'Your exam brief could not be processed.'})}\n\n"
+            return
+
     await exam_repo.archive_active_sessions(db_session, user_id)
 
     conversation = await message_repo.create_conversation(db_session, user_id)
