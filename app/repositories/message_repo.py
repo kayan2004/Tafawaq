@@ -146,13 +146,11 @@ async def add_message(
     conversation_id: UUID,
     role: MessageRole,
     content: str,
-    guardrails_score: float | None = None,
 ) -> MessageORM:
     row = MessageORM(
         conversation_id=conversation_id,
         role=role,
         content=content,
-        guardrails_score=guardrails_score,
     )
     session.add(row)
     await session.execute(
