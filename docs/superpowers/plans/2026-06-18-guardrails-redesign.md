@@ -224,7 +224,7 @@ git commit -m "feat(guardrails): add guardrail_events table, drop dead messages.
 
 **Interfaces:**
 - Consumes: `GuardrailEventORM`, `GuardrailCategory`, `GuardrailDirection`, `GuardrailLevel`, `GuardrailSource` (Task 1). `tests/conftest.py`'s `db_session` fixture (existing).
-- Produces: `insert_event(session, *, user_id, conversation_id, source, direction, category, level, score, reason, text_hash, text_preview) -> GuardrailEventORM`; `count_events_by_level(session, since: datetime) -> dict[GuardrailLevel, int]`; `get_recent_events(session, since: datetime, until: datetime) -> list[GuardrailEventORM]` (newest first).
+- Produces: `insert_event(session, *, user_id, conversation_id, source, direction, category, level, score, reason, text_hash, text_preview) -> GuardrailEventORM`; `count_events_by_level(session, since: datetime) -> dict[GuardrailLevel, int]`; `get_recent_events(session, since: datetime, until: datetime | None = None) -> list[GuardrailEventORM]` (newest first; `until=None` means no upper bound — required because comparing a host-clock `until` against a row's container-clock `created_at` is racy under clock skew, found and fixed mid-Task-6, see SESSION_LOG.md).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -265,9 +265,7 @@ async def test_insert_and_count_and_list_events(db_session: AsyncSession):
         before_counts = await guardrail_repo.count_events_by_level(db_session, since=since)
         before_blocked = before_counts.get(GuardrailLevel.blocked, 0)
         before_warned = before_counts.get(GuardrailLevel.warned, 0)
-        before_events = await guardrail_repo.get_recent_events(
-            db_session, since=since, until=datetime.now(timezone.utc)
-        )
+        before_events = await guardrail_repo.get_recent_events(db_session, since=since)
         before_ids = {e.id for e in before_events}
 
         await guardrail_repo.insert_event(
@@ -302,9 +300,7 @@ async def test_insert_and_count_and_list_events(db_session: AsyncSession):
         assert counts[GuardrailLevel.blocked] == before_blocked + 1
         assert counts[GuardrailLevel.warned] == before_warned + 1
 
-        events = await guardrail_repo.get_recent_events(
-            db_session, since=since, until=datetime.now(timezone.utc)
-        )
+        events = await guardrail_repo.get_recent_events(db_session, since=since)
         new_events = [e for e in events if e.id not in before_ids]
         assert len(new_events) == 2
         assert events[0].created_at >= events[1].created_at
@@ -380,14 +376,12 @@ async def count_events_by_level(session: AsyncSession, since: datetime) -> dict[
 
 
 async def get_recent_events(
-    session: AsyncSession, since: datetime, until: datetime
+    session: AsyncSession, since: datetime, until: datetime | None = None
 ) -> list[GuardrailEventORM]:
-    result = await session.execute(
-        select(GuardrailEventORM)
-        .where(GuardrailEventORM.created_at >= since)
-        .where(GuardrailEventORM.created_at <= until)
-        .order_by(GuardrailEventORM.created_at.desc())
-    )
+    query = select(GuardrailEventORM).where(GuardrailEventORM.created_at >= since)
+    if until is not None:
+        query = query.where(GuardrailEventORM.created_at <= until)
+    result = await session.execute(query.order_by(GuardrailEventORM.created_at.desc()))
     return list(result.scalars())
 ```
 
@@ -1048,7 +1042,6 @@ async def test_log_event_redacts_preview_and_hashes_original(db_session: AsyncSe
         events = await guardrail_repo.get_recent_events(
             db_session,
             since=datetime.now(timezone.utc) - timedelta(minutes=1),
-            until=datetime.now(timezone.utc),
         )
         event = next(e for e in events if e.user_id == user.id)
         assert event.text_hash == hashlib.sha256(text.encode()).hexdigest()
@@ -2135,8 +2128,11 @@ async def get_guardrails_messages(
     date_to: datetime | None = None,
 ) -> list[dict]:
     start = date_from or (datetime.now(timezone.utc) - timedelta(days=7))
-    end = date_to or datetime.now(timezone.utc)
-    events = await guardrail_repo.get_recent_events(db_session, since=start, until=end)
+    # until=date_to (not a "now" default): get_recent_events treats until=None as
+    # "no upper bound", which avoids a host/container clock-skew race that can
+    # otherwise exclude a row inserted moments ago (fixed mid-Task-6 after the
+    # same bug appeared in Tasks 2 and 5's tests; see SESSION_LOG.md).
+    events = await guardrail_repo.get_recent_events(db_session, since=start, until=date_to)
     return [
         {
             "ts": event.created_at.isoformat(),
