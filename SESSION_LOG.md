@@ -7,6 +7,92 @@ older ones, separated by `---`.
 
 ---
 
+## 2026-06-19 — Guardrails redesign: brainstormed, planned, in progress (Tasks 1-4 of 12 landed)
+
+Full redesign of the guardrails system, originating from the deferred
+guardrail-orphan bug below: rather than patch that bug in isolation, the user
+asked to redesign guardrails to be a general-purpose content-safety system
+(off-topic + prompt-injection + harmful-content detection) with correct
+prompt-injection handling. Went through brainstorming → design spec → 12-task
+implementation plan → subagent-driven execution (still in progress at the
+time of this entry).
+
+**Spec:** `docs/superpowers/specs/2026-06-18-guardrails-redesign-design.md`
+**Plan:** `docs/superpowers/plans/2026-06-18-guardrails-redesign.md`
+
+### Key design decisions
+
+- **Two-tier severity model:** `off_topic` stays lenient (existing 3-strike
+  Redis counter, unchanged); `prompt_injection`/`harmful_content` are
+  zero-tolerance (block immediately, no grace period) — matches how
+  production chat apps treat adversarial input vs. innocent topic drift.
+- **Kept NeMo Guardrails, rejected its built-in jailbreak heuristics.**
+  Investigated `jailbreak_detection_heuristics` (NeMo's built-in rail) and
+  rejected it: requires `torch`+`transformers`+a 3GB `gpt2-large` download in
+  the sidecar, and its perplexity-based approach targets gibberish/
+  adversarial-suffix attacks, not the natural-language injection
+  ("ignore previous instructions") that's the actual threat here. Also
+  rejected `self_check_input` as a second rail — boolean-only output parser,
+  no category/score/reason. Landed on generalizing the existing custom-action
+  pattern into one richer classifier call instead.
+- **Every guardrail block path now persists a paired assistant message.**
+  This is what fixes the deferred orphaned-message bug below — as a side
+  effect of doing the new design correctly, not a separate patch.
+- **New `guardrail_events` audit table**, decoupled from `messages` (covers
+  both chat and exam-generation sources). PII-redacted preview (Presidio,
+  scoped to this table only — verified during design that applying it to
+  live chat content corrupts math notation, e.g. flags `f(x` as
+  `ORGANIZATION`). Finally wires the admin Guardrails page to real data
+  (previously hardcoded zeros) and drops the dead `messages.guardrails_score`
+  column flagged in the 2026-06-18 services-layer audit below.
+- Output-side screening split by feasibility: exam-generation output check is
+  **blocking** (that Claude call isn't streamed, so the full text exists
+  before anything is shown to the student); chat output check is
+  **non-blocking, log-only** (the reply is already streamed by completion
+  time — can't un-send tokens).
+
+### Empirical verification done during planning (not guessed)
+
+- NeMo's `generate_async(..., options={"output_vars": [...]})` mechanism for
+  returning a structured dict from a custom action through a colang flow —
+  proved with a throwaway script run inside the live `guardrails` container.
+- Presidio's `AnalyzerEngine()` no-args default crashes (`SystemExit`) trying
+  to auto-download `en_core_web_lg` via a `pip` subprocess that doesn't exist
+  in this `uv`-managed environment — explicit `NlpEngineProvider` config
+  pointing at `en_core_web_sm` avoids it. Confirmed by installing the real
+  packages locally and reproducing both the crash and the fix.
+- `httpx.Response.raise_for_status()` needs a `.request` attached when
+  constructing a mock response by hand, or it raises `RuntimeError` instead
+  of behaving like a real response — affects every test that mocks the
+  sidecar HTTP call.
+
+### Execution status (subagent-driven-development, on `main`, no worktree per user's explicit choice)
+
+- ✅ Task 1 — enums + `GuardrailEventORM` + migration `0012`. One Important
+  fix round: the task removed `messages.guardrails_score` but missed that
+  `message_repo.add_message()` still passed it to the ORM constructor —
+  would have broken every chat message persisted. Caught by task review,
+  fixed, re-reviewed clean.
+- ✅ Task 2 — `guardrail_repo.py` insert/count/list functions. Clean review.
+- ✅ Task 3 — Presidio PII redaction module, self-contained, unwired. Clean
+  review.
+- ✅ Task 4 — sidecar rewrite (`classify_input`/`classify_output`, inline
+  `RailsConfig.from_content`, deleted old file-based NeMo config). Implementer
+  also fixed an unanticipated root-`pytest`-collection collision (the new
+  `guardrails-service/tests/` isn't importable from repo root) by adding
+  `testpaths = ["tests"]` to root `pyproject.toml` — correct, narrow,
+  verified not to affect `guardrails-service`'s own separate test invocation.
+  Review pending as of this log entry.
+- ⏳ Tasks 5-12 not yet started: `guardrails_service.py` rewrite,
+  `chat_service`/`exam_service` integration (the actual bug-fix-by-redesign
+  task), background output audit, admin wiring, CLAUDE.md update, full
+  end-to-end verification.
+
+Progress ledger with exact commit ranges per task:
+`.superpowers/sdd/progress.md` (git-ignored scratch directory).
+
+---
+
 ## 2026-06-18 — Services-layer review: chat history window bug fixed, guardrail-orphan bug deferred
 
 Continuation of the ongoing manual code audit (DB layer done previously, this
