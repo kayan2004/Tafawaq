@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -85,3 +86,27 @@ async def test_log_event_redacts_preview_and_hashes_original(db_session: AsyncSe
         await db_session.execute(delete(GuardrailEventORM).where(GuardrailEventORM.user_id == user.id))
         await db_session.execute(delete(UserORM).where(UserORM.id == user.id))
         await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_audit_output_async_logs_flagged_content():
+    flagged_verdict = OutputVerdict(flagged=True, score=0.85, reason="inappropriate")
+    user_id = uuid.uuid4()
+    conversation_id = uuid.uuid4()
+
+    with patch("app.services.guardrails_service.classify_output", return_value=flagged_verdict), \
+         patch("app.services.guardrails_service.log_event") as mock_log_event:
+        guardrails_service.audit_output_async(
+            "postgresql+asyncpg://postgres:devpassword@localhost:5432/lebanese_math",
+            "some flagged text",
+            user_id,
+            conversation_id,
+        )
+        # audit_output_async fires a background task — give the event loop a turn to run it
+        await asyncio.sleep(0.2)
+
+    mock_log_event.assert_awaited_once()
+    _, kwargs = mock_log_event.call_args
+    assert kwargs["user_id"] == user_id
+    assert kwargs["conversation_id"] == conversation_id
+    assert kwargs["level"] == GuardrailLevel.warned

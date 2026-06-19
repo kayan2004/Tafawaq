@@ -3,6 +3,7 @@ Redis counter (off-topic tier) + structured event logging for the admin audit lo
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 from dataclasses import dataclass
@@ -110,6 +111,54 @@ async def log_event(
         text_hash=text_hash,
         text_preview=preview,
     )
+
+
+# Holds strong references to background tasks so GC cannot collect them mid-run
+# (mirrors app/services/exam_service.py's _bg_tasks pattern).
+_bg_tasks: set[asyncio.Task] = set()
+_bg_engine = None
+_bg_maker = None
+
+
+def _get_bg_maker(db_url: str):
+    global _bg_engine, _bg_maker
+    if _bg_maker is None:
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+        _bg_engine = create_async_engine(db_url, echo=False)
+        _bg_maker = async_sessionmaker(_bg_engine, expire_on_commit=False)
+    return _bg_maker
+
+
+async def _audit_output(db_url: str, text: str, user_id: UUID, conversation_id: UUID) -> None:
+    try:
+        verdict = await classify_output(text)
+    except AIServiceUnavailable:
+        return  # best-effort audit — the sidecar being down must not surface anywhere
+    if not verdict.flagged:
+        return
+    maker = _get_bg_maker(db_url)
+    async with maker() as session:
+        await log_event(
+            session,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            source=GuardrailSource.chat,
+            direction=GuardrailDirection.output,
+            category=None,
+            level=GuardrailLevel.warned,
+            score=verdict.score,
+            reason=verdict.reason,
+            text=text,
+        )
+        await session.commit()
+
+
+def audit_output_async(db_url: str, text: str, user_id: UUID, conversation_id: UUID) -> None:
+    """Fire-and-forget: classify the assistant's full response and log a warned
+    event if flagged. Never blocks the caller, never raises into it."""
+    task = asyncio.create_task(_audit_output(db_url, text, user_id, conversation_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
 
 async def get_counter(redis: Redis, conversation_id: str) -> int:

@@ -366,5 +366,8 @@ async def handle_turn(
             db_session, conversation_id, MessageRole.assistant, full_response
         )
         await db_session.commit()
+
+        if full_response:
+            guardrails_service.audit_output_async(secrets.db_url, full_response, user_id, conversation_id)
     finally:
         await conn.close()
