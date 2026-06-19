@@ -139,12 +139,13 @@ These are hardcoded in `infra/llm/claude.py`. Do not change without checking emb
 |---|---|---|
 | `users` | fastapi-users base + created_at, last_login | |
 | `conversations` | user_id FK | |
-| `messages` | conversation_id FK, role enum, guardrails_score nullable | |
+| `messages` | conversation_id FK, role enum | |
 | `exam_sessions` | user_id, session_type, exam_content JSONB, answer_key JSONB, status | Permanent — no expires_at |
 | `exam_results` | session_id, evaluator_1/2 JSONB, total_score_1/2, discrepancy_flagged | Permanent — no expires_at |
 | `chunks` | source_type, embedding vector(1536), year/session/exercise_id nullable | Shared table for past_exam + answer_key source types — textbook content is no longer chunked/embedded, see `textbook_pages` |
 | `textbook_pages` | page_number (unique), chapter, section, page_type, content | Raw page store; looked up directly by page_number, not joined from `chunks` |
 | `topic_stats` | topic (unique), appearances, last_seen_year | Zero-LLM analytics |
+| `guardrail_events` | user_id, conversation_id nullable, source/direction/category/level enums, score, reason, text_hash, text_preview | Audit log for the guardrails system — text_preview is truncated + PII-redacted, never the raw message |
 
 ### Redis keys
 - `guardrails:{conversation_id}` → off-topic message counter (int), TTL 3 hours
@@ -171,6 +172,38 @@ Guardrail tiers: 0–1 messages = normal, 2 = warning suffix appended, 3+ = bloc
 
 Only one tool is active in chat: `retrieve_textbook_page` (direct page-number lookup against `textbook_pages` — no embeddings involved).
 The other three tools (`retrieve_past_questions`, `retrieve_answer_key`, `get_topic_stats`) are defined in `tools.py` but NOT included in `_CHAT_TOOLS`. They are available for future activation.
+
+---
+
+## Guardrails
+
+Two-tier severity model, both driven by one classifier call per message
+(`guardrails_service.classify_input`, calling the NeMo sidecar's `POST /check`):
+
+- **`off_topic`** — lenient. Redis counter (`guardrails:{conversation_id}`,
+  TTL 3 hours): 0–1 consecutive off-topic messages = normal, 2 = warning
+  suffix appended, 3+ = block.
+- **`prompt_injection` / `harmful_content`** — zero-tolerance. Blocks that
+  single message immediately, no counter, no grace period.
+
+Every block path (zero-tolerance or 3-strike) persists a paired assistant
+message before returning — required for Anthropic's API, which rejects
+consecutive same-role messages on the next turn.
+
+Generated content (chat replies, exam exercises) is also screened via a
+separate, simpler action (`classify_output`, `POST /check-output` on the
+sidecar) that only asks "is this safe to show a student" — no
+adversarial-intent categories, since those don't apply to the model's own
+output. Exam generation blocks on a flagged result (not streamed, so
+blocking is feasible before anything is shown). Chat output is audited in
+a non-blocking background task (`audit_output_async`) — log-only, since
+the reply is already streamed by the time the full text exists.
+
+Every blocked/warned event is persisted to `guardrail_events` (`source`:
+chat | exam_generation; `direction`: input | output) — this is what
+backs the admin Guardrails page. `text_preview` is PII-redacted
+(Presidio, scoped to this audit-log field only — never applied to live
+chat content, since Presidio's NER false-positives on math notation).
 
 ---
 
