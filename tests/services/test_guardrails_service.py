@@ -102,7 +102,9 @@ async def test_audit_output_async_logs_flagged_content():
             user_id,
             conversation_id,
         )
-        # audit_output_async fires a background task — give the event loop a turn to run it
+        # audit_output_async must return synchronously without awaiting; log_event should not be called yet
+        mock_log_event.assert_not_awaited()
+        # Give the event loop a turn to run the background task
         await asyncio.sleep(0.2)
 
     mock_log_event.assert_awaited_once()
