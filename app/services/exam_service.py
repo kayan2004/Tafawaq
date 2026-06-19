@@ -202,6 +202,15 @@ def _build_answer_key_text(ak_exercise: dict) -> str:
     )
 
 
+def _exam_content_as_text(exam_content: ExamContent) -> str:
+    lines: list[str] = []
+    for ex in exam_content.exercises:
+        lines.append(f"Exercise {ex.id} ({ex.topic}): {ex.content}")
+        for part in ex.parts:
+            lines.append(f"Part {part.part}: {part.content}")
+    return "\n".join(lines)
+
+
 def _call_regenerate(
     topic: str,
     total_marks: float,
@@ -405,6 +414,26 @@ async def generate_exam(
         await db_session.delete(placeholder_session)
         await db_session.commit()
         yield f"data: {json.dumps({'event': 'error', 'message': 'Model returned an empty exam. Please try again.'})}\n\n"
+        return
+
+    output_text = _exam_content_as_text(exam_content)
+    output_verdict = await guardrails_service.classify_output(output_text)
+    if output_verdict.flagged:
+        await guardrails_service.log_event(
+            db_session,
+            user_id=user_id,
+            conversation_id=conversation.id,
+            source=GuardrailSource.exam_generation,
+            direction=GuardrailDirection.output,
+            category=None,
+            level=GuardrailLevel.blocked,
+            score=output_verdict.score,
+            reason=output_verdict.reason,
+            text=output_text,
+        )
+        await db_session.delete(placeholder_session)
+        await db_session.commit()
+        yield f"data: {json.dumps({'event': 'error', 'message': 'Generated exam failed a safety check. Please try again.'})}\n\n"
         return
 
     placeholder_session.exam_content = exam_content.model_dump()
