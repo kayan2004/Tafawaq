@@ -32,3 +32,24 @@ class QuestionType(str, Enum):
 class MessageRole(str, Enum):
     user = "user"
     assistant = "assistant"
+
+
+class GuardrailCategory(str, Enum):
+    off_topic = "off_topic"
+    prompt_injection = "prompt_injection"
+    harmful_content = "harmful_content"
+
+
+class GuardrailLevel(str, Enum):
+    warned = "warned"
+    blocked = "blocked"
+
+
+class GuardrailSource(str, Enum):
+    chat = "chat"
+    exam_generation = "exam_generation"
+
+
+class GuardrailDirection(str, Enum):
+    input = "input"
+    output = "output"
