@@ -566,6 +566,27 @@ export async function getTopicStats(token: string): Promise<TopicStat[]> {
   return Array.isArray(data.topics) ? (data.topics as TopicStat[]) : [];
 }
 
+export interface PastQuestion {
+  chunk_id: string;
+  year: number;
+  session: number;
+  exercise_id: number;
+  topic: string;
+  question_type: string;
+  marks: number;
+  content: string;
+  answer: string | null;
+}
+
+export async function getQuestionsByTopic(token: string, topic: string): Promise<PastQuestion[]> {
+  const res = await fetch(`/topics/${encodeURIComponent(topic)}/questions`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.questions) ? (data.questions as PastQuestion[]) : [];
+}
+
 /** POST /tts — synthesize spoken-English text, returns audio/mpeg blob. */
 export async function requestTts(token: string, text: string): Promise<Blob> {
   const res = await fetch("/tts", {
