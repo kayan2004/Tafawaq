@@ -117,8 +117,9 @@ async def get_guardrails_messages(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     _user: UserORM = Depends(current_superuser),
+    db_session: AsyncSession = Depends(get_async_session),
 ):
-    messages = await admin_service.get_guardrails_messages(date_from, date_to)
+    messages = await admin_service.get_guardrails_messages(db_session, date_from, date_to)
     return {"messages": messages}
 
 

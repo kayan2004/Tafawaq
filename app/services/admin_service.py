@@ -14,9 +14,10 @@ import asyncpg
 import pgvector.asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.enums import GuardrailLevel
 from app.domain.exceptions import AdminFileNotFound, AdminUserNotFound
 from app.infra.vault import AppSecrets
-from app.repositories import admin_repo
+from app.repositories import admin_repo, guardrail_repo
 from app.services import topic_service
 from ingestion import pipeline as past_exam_pipeline
 from ingestion import tagger as past_exam_tagger
@@ -232,26 +233,40 @@ async def get_topics_with_gaps(db_session: AsyncSession) -> dict:
     return {"topics": [s.model_dump() for s in stats], "gaps": gaps}
 
 
-# ── Guardrails (read-only against the existing, mostly-empty schema) ─────────
-#
-# messages.guardrails_score is never written anywhere in the codebase and the
-# block/warn tiers live only in an ephemeral Redis counter that is never
-# persisted (see CLAUDE.md guardrails section). Per the user, guardrails is
-# getting a larger rework later — this stays honest against real data rather
-# than fabricating or instrumenting new persistence now.
+# ── Guardrails ──────────────────────────────────────────────────────────────
 
 
 async def get_guardrails_summary(db_session: AsyncSession) -> dict:
     since = datetime.now(timezone.utc) - timedelta(days=7)
     messages_7d = await admin_repo.count_messages(db_session, since=since)
-    return {"messages_7d": messages_7d, "blocked": 0, "warned": 0, "block_rate": 0.0}
+    counts = await guardrail_repo.count_events_by_level(db_session, since=since)
+    blocked = counts.get(GuardrailLevel.blocked, 0)
+    warned = counts.get(GuardrailLevel.warned, 0)
+    block_rate = (blocked / messages_7d) if messages_7d else 0.0
+    return {"messages_7d": messages_7d, "blocked": blocked, "warned": warned, "block_rate": block_rate}
 
 
 async def get_guardrails_messages(
+    db_session: AsyncSession,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> list[dict]:
-    return []
+    start = date_from or (datetime.now(timezone.utc) - timedelta(days=7))
+    # until=date_to (not a "now" default): get_recent_events treats until=None as
+    # "no upper bound", which avoids a host/container clock-skew race that can
+    # otherwise exclude a row inserted moments ago (fixed mid-Task-6 after the
+    # same bug appeared in Tasks 2 and 5's tests; see SESSION_LOG.md).
+    events = await guardrail_repo.get_recent_events(db_session, since=start, until=date_to)
+    return [
+        {
+            "ts": event.created_at.isoformat(),
+            "text": event.text_preview,
+            "score": event.score,
+            "level": event.level.value,
+            "reason": event.reason,
+        }
+        for event in events
+    ]
 
 
 # ── Users ───────────────────────────────────────────────────────────────────
