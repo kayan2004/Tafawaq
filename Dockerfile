@@ -23,4 +23,11 @@ COPY Math_GS_Exams_English/ Math_GS_Exams_English/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system .
 
+# Presidio's default AnalyzerEngine() auto-downloads en_core_web_lg via a `pip`
+# subprocess that doesn't exist in this uv-managed image and crashes with
+# SystemExit (verified during design) — install the small model explicitly
+# via direct wheel URL instead of `spacy download`.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
