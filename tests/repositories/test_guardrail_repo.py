@@ -33,7 +33,7 @@ async def test_insert_and_count_and_list_events(db_session: AsyncSession):
         before_blocked = before_counts.get(GuardrailLevel.blocked, 0)
         before_warned = before_counts.get(GuardrailLevel.warned, 0)
         before_events = await guardrail_repo.get_recent_events(
-            db_session, since=since, until=datetime.now(timezone.utc)
+            db_session, since=since
         )
         before_ids = {e.id for e in before_events}
 
@@ -70,7 +70,7 @@ async def test_insert_and_count_and_list_events(db_session: AsyncSession):
         assert counts[GuardrailLevel.warned] == before_warned + 1
 
         events = await guardrail_repo.get_recent_events(
-            db_session, since=since, until=datetime.now(timezone.utc)
+            db_session, since=since
         )
         new_events = [e for e in events if e.id not in before_ids]
         assert len(new_events) == 2

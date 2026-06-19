@@ -76,7 +76,6 @@ async def test_log_event_redacts_preview_and_hashes_original(db_session: AsyncSe
         events = await guardrail_repo.get_recent_events(
             db_session,
             since=datetime.now(timezone.utc) - timedelta(minutes=1),
-            until=datetime.now(timezone.utc),
         )
         event = next(e for e in events if e.user_id == user.id)
         assert event.text_hash == hashlib.sha256(text.encode()).hexdigest()

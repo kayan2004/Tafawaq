@@ -54,12 +54,10 @@ async def count_events_by_level(session: AsyncSession, since: datetime) -> dict[
 
 
 async def get_recent_events(
-    session: AsyncSession, since: datetime, until: datetime
+    session: AsyncSession, since: datetime, until: datetime | None = None
 ) -> list[GuardrailEventORM]:
-    result = await session.execute(
-        select(GuardrailEventORM)
-        .where(GuardrailEventORM.created_at >= since)
-        .where(GuardrailEventORM.created_at <= until)
-        .order_by(GuardrailEventORM.created_at.desc())
-    )
+    query = select(GuardrailEventORM).where(GuardrailEventORM.created_at >= since)
+    if until is not None:
+        query = query.where(GuardrailEventORM.created_at <= until)
+    result = await session.execute(query.order_by(GuardrailEventORM.created_at.desc()))
     return list(result.scalars())
