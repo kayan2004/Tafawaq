@@ -1,44 +1,115 @@
-"""Guardrails: off-topic classification via NeMo Guardrails service + Redis counter."""
+"""Guardrails: multi-category classification via the NeMo Guardrails sidecar +
+Redis counter (off-topic tier) + structured event logging for the admin audit log.
+"""
 from __future__ import annotations
 
+import hashlib
 import os
+from dataclasses import dataclass
+from uuid import UUID
 
 import httpx
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.enums import GuardrailCategory, GuardrailDirection, GuardrailLevel, GuardrailSource
 from app.domain.exceptions import AIServiceUnavailable
+from app.infra import pii_redaction
 from app.infra.redis_client import (
     get_guardrails_counter,
     increment_guardrails_counter,
     set_guardrails_counter,
 )
+from app.repositories import guardrail_repo
 
 _GUARDRAILS_URL = os.environ.get("GUARDRAILS_URL", "http://guardrails:8100")
-_MIN_WORDS_TO_CLASSIFY = 10
+
+_VALID_CATEGORIES = {c.value for c in GuardrailCategory}
 
 
-async def classify_message(text: str) -> bool:
-    """Return True if the message is off-topic for Lebanese GS Math exam prep.
+@dataclass
+class InputVerdict:
+    category: GuardrailCategory | None
+    score: float
+    reason: str
 
-    Short messages (< 10 words) are always treated as on-topic to avoid
-    false positives on greetings and single-word queries.
-    Calls the NeMo Guardrails service; maps HTTP/network errors to AIServiceUnavailable.
-    """
-    if len(text.split()) < _MIN_WORDS_TO_CLASSIFY:
-        return False
 
+@dataclass
+class OutputVerdict:
+    flagged: bool
+    score: float
+    reason: str
+
+
+async def _call_sidecar(endpoint: str, text: str) -> dict:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                f"{_GUARDRAILS_URL}/check",
-                json={"message": text},
-            )
+            response = await client.post(f"{_GUARDRAILS_URL}{endpoint}", json={"message": text})
             response.raise_for_status()
-            return response.json()["off_topic"]
+            return response.json()
     except httpx.HTTPStatusError as exc:
         raise AIServiceUnavailable(f"Guardrails service returned {exc.response.status_code}") from exc
     except httpx.RequestError as exc:
         raise AIServiceUnavailable(f"Guardrails service unreachable: {exc}") from exc
+
+
+async def classify_input(text: str) -> InputVerdict:
+    """Classify a chat message or exam-generation brief.
+
+    No length short-circuit: a short message can still be a complete injection
+    attempt ("ignore all instructions" is 3 words), so skipping classification
+    below a word count would defeat injection detection.
+    """
+    data = await _call_sidecar("/check", text)
+    category_raw = data.get("category")
+    category = GuardrailCategory(category_raw) if category_raw in _VALID_CATEGORIES else None
+    return InputVerdict(
+        category=category,
+        score=float(data.get("score", 0.0)),
+        reason=str(data.get("reason", "")),
+    )
+
+
+async def classify_output(text: str) -> OutputVerdict:
+    """Classify generated content (chat reply or exam exercise) for safety only."""
+    data = await _call_sidecar("/check-output", text)
+    return OutputVerdict(
+        flagged=bool(data.get("flagged", False)),
+        score=float(data.get("score", 0.0)),
+        reason=str(data.get("reason", "")),
+    )
+
+
+async def log_event(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    conversation_id: UUID | None,
+    source: GuardrailSource,
+    direction: GuardrailDirection,
+    category: GuardrailCategory | None,
+    level: GuardrailLevel,
+    score: float,
+    reason: str,
+    text: str,
+) -> None:
+    """Single choke point for guardrail_events writes — hashes the original text,
+    truncates and redacts the preview so no caller can accidentally store raw PII."""
+    text_hash = hashlib.sha256(text.encode()).hexdigest()
+    preview = pii_redaction.redact(text[:100])
+    await guardrail_repo.insert_event(
+        session,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        source=source,
+        direction=direction,
+        category=category,
+        level=level,
+        score=score,
+        reason=reason,
+        text_hash=text_hash,
+        text_preview=preview,
+    )
 
 
 async def get_counter(redis: Redis, conversation_id: str) -> int:
