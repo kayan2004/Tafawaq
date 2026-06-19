@@ -53,3 +53,9 @@ packages = ["app", "ingestion"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# guardrails-service/ is a separate Python project (own requirements.txt,
+# own "verdict" top-level module) with its own test invocation
+# (cd guardrails-service && python -m pytest tests/test_verdict.py) — exclude
+# it from the main suite's default collection so root-level `pytest` runs
+# don't try to import it and fail the whole run.
+testpaths = ["tests"]
