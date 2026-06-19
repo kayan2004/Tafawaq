@@ -49,6 +49,11 @@ WARNING_SUFFIX = (
     "such as functions, integrals, derivatives, probability, and geometry in space."
 )
 
+SAFETY_BLOCK_MESSAGE = (
+    "I can't help with that request. Let's get back to your Lebanese GS Math "
+    "exam preparation — ask me about any topic from the curriculum."
+)
+
 
 def build_chat_system_prompt(curriculum: dict, counter: int) -> str:
     """Return the chat system prompt.

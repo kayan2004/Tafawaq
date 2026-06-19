@@ -7,12 +7,15 @@ from __future__ import annotations
 import os
 
 import pytest_asyncio
+import redis.asyncio as redis_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 _DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://postgres:devpassword@localhost:5432/lebanese_math",
 )
+
+_REDIS_URL = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379")
 
 
 @pytest_asyncio.fixture
@@ -22,3 +25,10 @@ async def db_session():
     async with maker() as session:
         yield session
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def redis_client():
+    client = redis_asyncio.from_url(_REDIS_URL)
+    yield client
+    await client.aclose()

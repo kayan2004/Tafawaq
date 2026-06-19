@@ -13,7 +13,7 @@ import pgvector.asyncpg
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import MessageRole
+from app.domain.enums import GuardrailCategory, GuardrailDirection, GuardrailLevel, GuardrailSource, MessageRole
 from app.infra import langfuse_client
 from app.infra.llm.claude import call_claude, call_claude_vision, stream_claude
 from app.infra.llm.tools import RETRIEVE_TEXTBOOK_PAGE_TOOL
@@ -23,6 +23,7 @@ from app.services import guardrails_service, retrieval_service
 from prompts.math.chat import BLOCK_MESSAGE as _BLOCK_MESSAGE
 from prompts.math.chat import IMAGE_EXTRACT_PROMPT as _IMAGE_EXTRACT_PROMPT
 from prompts.math.chat import RETRIEVE_SYSTEM_PROMPT as _RETRIEVE_SYSTEM_PROMPT
+from prompts.math.chat import SAFETY_BLOCK_MESSAGE as _SAFETY_BLOCK_MESSAGE
 from prompts.math.chat import WARNING_SUFFIX as _WARNING_SUFFIX
 from prompts.math.chat import build_chat_system_prompt as _build_chat_system_prompt_fn
 from prompts.shared.chat import build_retrieve_user_message as _build_retrieve_user_message
@@ -205,10 +206,28 @@ async def handle_turn(
             await db_session.commit()
             return
 
-        off_topic = await guardrails_service.classify_message(message)
-        counter = await guardrails_service.get_counter(redis, str(conversation_id))
+        verdict = await guardrails_service.classify_input(message)
 
-        if off_topic:
+        if verdict.category in (GuardrailCategory.prompt_injection, GuardrailCategory.harmful_content):
+            await message_repo.add_message(db_session, conversation_id, MessageRole.assistant, _SAFETY_BLOCK_MESSAGE)
+            await guardrails_service.log_event(
+                db_session,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                source=GuardrailSource.chat,
+                direction=GuardrailDirection.input,
+                category=verdict.category,
+                level=GuardrailLevel.blocked,
+                score=verdict.score,
+                reason=verdict.reason,
+                text=message,
+            )
+            await db_session.commit()
+            yield f"data: {json.dumps({'event': 'guardrail_block', 'message': _SAFETY_BLOCK_MESSAGE})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        if verdict.category == GuardrailCategory.off_topic:
             counter = await guardrails_service.increment_counter(redis, str(conversation_id))
         else:
             await guardrails_service.reset_counter(redis, str(conversation_id))
@@ -217,9 +236,37 @@ async def handle_turn(
         tier = guardrails_service.get_guardrail_tier(counter)
 
         if tier == "block":
+            await message_repo.add_message(db_session, conversation_id, MessageRole.assistant, _BLOCK_MESSAGE)
+            await guardrails_service.log_event(
+                db_session,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                source=GuardrailSource.chat,
+                direction=GuardrailDirection.input,
+                category=GuardrailCategory.off_topic,
+                level=GuardrailLevel.blocked,
+                score=verdict.score,
+                reason=verdict.reason,
+                text=message,
+            )
+            await db_session.commit()
             yield f"data: {json.dumps({'event': 'guardrail_block', 'message': _BLOCK_MESSAGE})}\n\n"
             yield "data: [DONE]\n\n"
             return
+
+        if tier == "warning":
+            await guardrails_service.log_event(
+                db_session,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                source=GuardrailSource.chat,
+                direction=GuardrailDirection.input,
+                category=GuardrailCategory.off_topic,
+                level=GuardrailLevel.warned,
+                score=verdict.score,
+                reason=verdict.reason,
+                text=message,
+            )
 
         history = await message_repo.get_messages(db_session, conversation_id, limit=20)
         claude_messages = [
