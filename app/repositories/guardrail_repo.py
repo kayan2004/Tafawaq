@@ -44,20 +44,21 @@ async def insert_event(
     return row
 
 
-async def count_events_by_level(session: AsyncSession, since: datetime) -> dict[GuardrailLevel, int]:
-    result = await session.execute(
-        select(GuardrailEventORM.level, func.count())
-        .where(GuardrailEventORM.created_at >= since)
-        .group_by(GuardrailEventORM.level)
-    )
+async def count_events_by_level(
+    session: AsyncSession, since: datetime, source: GuardrailSource | None = None
+) -> dict[GuardrailLevel, int]:
+    query = select(GuardrailEventORM.level, func.count()).where(GuardrailEventORM.created_at >= since)
+    if source is not None:
+        query = query.where(GuardrailEventORM.source == source)
+    result = await session.execute(query.group_by(GuardrailEventORM.level))
     return {level: count for level, count in result.all()}
 
 
 async def get_recent_events(
-    session: AsyncSession, since: datetime, until: datetime | None = None
+    session: AsyncSession, since: datetime, until: datetime | None = None, limit: int = 500
 ) -> list[GuardrailEventORM]:
     query = select(GuardrailEventORM).where(GuardrailEventORM.created_at >= since)
     if until is not None:
         query = query.where(GuardrailEventORM.created_at <= until)
-    result = await session.execute(query.order_by(GuardrailEventORM.created_at.desc()))
+    result = await session.execute(query.order_by(GuardrailEventORM.created_at.desc()).limit(limit))
     return list(result.scalars())

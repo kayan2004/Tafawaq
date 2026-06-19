@@ -14,7 +14,7 @@ import asyncpg
 import pgvector.asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import GuardrailLevel
+from app.domain.enums import GuardrailLevel, GuardrailSource
 from app.domain.exceptions import AdminFileNotFound, AdminUserNotFound
 from app.infra.vault import AppSecrets
 from app.repositories import admin_repo, guardrail_repo
@@ -239,7 +239,7 @@ async def get_topics_with_gaps(db_session: AsyncSession) -> dict:
 async def get_guardrails_summary(db_session: AsyncSession) -> dict:
     since = datetime.now(timezone.utc) - timedelta(days=7)
     messages_7d = await admin_repo.count_messages(db_session, since=since)
-    counts = await guardrail_repo.count_events_by_level(db_session, since=since)
+    counts = await guardrail_repo.count_events_by_level(db_session, since=since, source=GuardrailSource.chat)
     blocked = counts.get(GuardrailLevel.blocked, 0)
     warned = counts.get(GuardrailLevel.warned, 0)
     block_rate = (blocked / messages_7d) if messages_7d else 0.0

@@ -97,7 +97,7 @@ async def log_event(
     """Single choke point for guardrail_events writes — hashes the original text,
     truncates and redacts the preview so no caller can accidentally store raw PII."""
     text_hash = hashlib.sha256(text.encode()).hexdigest()
-    preview = pii_redaction.redact(text[:100])
+    preview = pii_redaction.redact(text[:100])[:100]
     await guardrail_repo.insert_event(
         session,
         user_id=user_id,

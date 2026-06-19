@@ -89,6 +89,40 @@ async def test_log_event_redacts_preview_and_hashes_original(db_session: AsyncSe
 
 
 @pytest.mark.asyncio
+async def test_log_event_caps_preview_at_100_chars_even_when_redaction_expands_it(db_session: AsyncSession):
+    user = await _make_user(db_session)
+    try:
+        # Verified empirically: this exact 92-char string redacts to 129 chars
+        # (several short PERSON/DATE_TIME matches each replaced by a longer
+        # placeholder token), which would overflow text_preview's String(100)
+        # column before this fix.
+        text = "Call Al at 11-11, Bo at 22-22, Cy at 33-33, Dy at 44-44, Ed at 55-55, Fy at 66-66 now please"
+        await guardrails_service.log_event(
+            db_session,
+            user_id=user.id,
+            conversation_id=None,
+            source=GuardrailSource.chat,
+            direction=GuardrailDirection.input,
+            category=GuardrailCategory.prompt_injection,
+            level=GuardrailLevel.blocked,
+            score=0.9,
+            reason="test",
+            text=text,
+        )
+        await db_session.commit()
+
+        events = await guardrail_repo.get_recent_events(
+            db_session, since=datetime.now(timezone.utc) - timedelta(minutes=1)
+        )
+        event = next(e for e in events if e.user_id == user.id)
+        assert len(event.text_preview) <= 100
+    finally:
+        await db_session.execute(delete(GuardrailEventORM).where(GuardrailEventORM.user_id == user.id))
+        await db_session.execute(delete(UserORM).where(UserORM.id == user.id))
+        await db_session.commit()
+
+
+@pytest.mark.asyncio
 async def test_audit_output_async_logs_flagged_content():
     flagged_verdict = OutputVerdict(flagged=True, score=0.85, reason="inappropriate")
     user_id = uuid.uuid4()
