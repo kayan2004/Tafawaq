@@ -23,11 +23,12 @@ updated to reflect the new system.
 
 **This also closes out the previously-deferred orphaned-message bug** from
 the 2026-06-18 entry further below (`guardrail block leaves an orphaned user
-message` → broken role alternation → every subsequent turn 400s). The fix
-was a side effect of doing the redesign correctly: every guardrail block path
-(off-topic 3-strike and zero-tolerance alike) now persists a paired assistant
-message before returning, so the next turn's `claude_messages` rebuild never
-sees two consecutive user-role messages. Confirmed fixed two ways:
+message` → broken role alternation → every subsequent turn 400s) — **for
+every block-decision path.** The fix was a side effect of doing the redesign
+correctly: every guardrail block path (off-topic 3-strike and zero-tolerance
+alike) now persists a paired assistant message before returning, so the next
+turn's `claude_messages` rebuild never sees two consecutive user-role
+messages on those paths. Confirmed fixed two ways:
 - **Regression tests:** `tests/services/test_chat_service.py::test_zero_tolerance_block_persists_paired_assistant_message`
   and `::test_off_topic_three_strikes_persists_paired_assistant_message_on_block`.
 - **Live end-to-end proof (Task 12, this entry):** real HTTP against the
@@ -37,6 +38,22 @@ sees two consecutive user-role messages. Confirmed fixed two ways:
   (one prompt-injection message blocks immediately, no 3-strike needed; the
   following normal message on the same conversation also returned a clean
   200). This is the exact repro from the 2026-06-18 entry, now passing.
+
+**Known residual gap, found by the final whole-branch review, not yet
+fixed:** the fix above only covers paths where `classify_input` *returns* a
+verdict (on-topic, off-topic, injection, harmful). If `classify_input`
+itself *raises* — e.g. `AIServiceUnavailable` because the NeMo sidecar is
+down — the user's message is already committed (`chat_service.py:124`,
+before the classify call) and the exception propagates out of the generator
+with no paired assistant reply. Since the SSE stream is already at 200 by
+then, this can't map to a clean 4xx either (CLAUDE.md rule 6). This recreates
+the identical orphaned-message hazard via a different trigger (sidecar
+outage instead of a block decision) — pre-existing in the old code too, not
+introduced by this redesign, but also not closed by it. So: **"never breaks
+again" is true for block decisions, not yet true for classifier outages.**
+Proper fix is structural (e.g. defer the user-message commit until after
+classification, or catch inside the generator and persist a paired reply) —
+tracked as follow-up, not done in this branch.
 
 ### Task 12 full end-to-end verification — what was run
 
@@ -89,6 +106,44 @@ sees two consecutive user-role messages. Confirmed fixed two ways:
 No code changes this task — verification only. Full detail (every curl
 command and raw response) in `.superpowers/sdd/task-12-report.md`
 (git-ignored scratch directory, not committed).
+
+### Final whole-branch review — one Important finding re-opened the headline bug, fixed; one open question for the user
+
+After all 12 tasks passed their individual task-scoped reviews, a final
+review across the entire 19-commit range (the kind of holistic read that
+catches what task-scoped reviews structurally can't) found:
+
+- **Fixed (Important):** `guardrails_service.log_event` truncated the
+  preview *before* redacting (`redact(text[:100])`). Presidio's placeholder
+  tokens (`<PERSON>`, `<DATE_TIME>`, etc.) can be longer than the span they
+  replace, so a packed message could redact to *more* than 100 chars,
+  overflowing `text_preview`'s `String(100)` column and raising
+  `StringDataRightTruncationError` on insert — inside the same
+  zero-tolerance chat-block path this redesign exists to keep clean,
+  re-orphaning the assistant message via an attacker-triggerable input.
+  Verified empirically: `"Call Al at 11-11, Bo at 22-22, Cy at 33-33, Dy at
+  44-44, Ed at 55-55, Fy at 66-66 now please"` (92 chars) redacts to 129
+  chars. Fixed with `redact(text[:100])[:100]` — truncate the redacted
+  result too. New regression test locks this in
+  (`test_log_event_caps_preview_at_100_chars_even_when_redaction_expands_it`).
+- **Fixed (Minor):** `get_recent_events` had no row cap (admin dashboard
+  could return unbounded rows) — added `limit: int = 500`.
+- **Fixed (Minor):** `get_guardrails_summary`'s `block_rate` mixed
+  populations — `blocked`/`warned` included exam-generation events while
+  `messages_7d` counted chat messages only. Added an optional `source`
+  filter to `count_events_by_level`, scoped the summary to
+  `source=GuardrailSource.chat`.
+- **Documented, not fixed:** the classifier-outage gap described above
+  (sidecar down → orphaned message via a different trigger than the one
+  this branch fixes).
+- **Open question, not yet decided:** the `/retrieve` chat command (a
+  structured search-past-questions flow, separate from the main turn
+  handler) returns before reaching `classify_input` — so a `/retrieve`
+  query (plus any OCR'd image text appended to it) reaches an LLM call with
+  zero injection/harmful-content screening. This wasn't called out as
+  in-scope in the original design discussion, and closing it needs a UX
+  decision (what does a blocked `/retrieve` show?) — left for the user to
+  decide, not assumed.
 
 ---
 
