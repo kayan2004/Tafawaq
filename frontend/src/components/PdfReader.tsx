@@ -14,6 +14,7 @@ interface PdfReaderProps {
 
 export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
+  const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [docError, setDocError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -21,24 +22,26 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
 
-  // Load the document
   useEffect(() => {
-    let cancelled = false;
     setPdfDoc(null);
+    setNumPages(0);
     setCurrentPage(1);
     setDocError(null);
+    let cancelled = false;
     const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
     loadingTask.promise
       .then((doc) => {
-        if (!cancelled) setPdfDoc(doc);
+        if (cancelled) return;
+        setPdfDoc(doc);
+        setNumPages(doc.numPages);
       })
       .catch(() => {
-        if (!cancelled) setDocError("Couldn't display this book the usual way.");
+        if (cancelled) return;
+        setDocError("Couldn't display this book the usual way.");
       });
     return () => { cancelled = true; loadingTask.destroy(); };
   }, [pdfUrl]);
 
-  // Render the current page
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return;
     setPageError(null);
@@ -54,7 +57,7 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
       canvas.height = viewport.height;
 
       renderTaskRef.current?.cancel();
-      const task = page.render({ canvas, canvasContext: ctx, viewport });
+      const task = page.render({ canvasContext: ctx, viewport, canvas });
       renderTaskRef.current = task;
       task.promise.catch((err: { name?: string }) => {
         if (err?.name !== "RenderingCancelledException") {
@@ -65,6 +68,20 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
 
     return () => { cancelled = true; renderTaskRef.current?.cancel(); };
   }, [pdfDoc, currentPage]);
+
+  const goToPage = (n: number) => {
+    if (n < 1 || n > numPages) return;
+    setCurrentPage(n);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goToPage(currentPage - 1);
+      if (e.key === "ArrowRight") goToPage(currentPage + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [currentPage, numPages]);
 
   if (docError) {
     return (
@@ -80,13 +97,22 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
   }
 
   return (
-    <div className="pdf-stage">
-      <div className="pdf-canvas-stage">
-        <div className="pdf-canvas-wrap">
-          <canvas ref={canvasRef} className="pdf-canvas" aria-label={`${title}, page ${currentPage}`} />
-          {pageError && <div className="pdf-canvas-error">{pageError}</div>}
+    <>
+      <div className="pdf-toolbar">
+        <div className="pdf-pager">
+          <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page">‹</button>
+          <span className="pdf-pager-count">{currentPage} <small>/ {numPages || "…"}</small></span>
+          <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages} aria-label="Next page">›</button>
         </div>
       </div>
-    </div>
+      <div className="pdf-stage">
+        <div className="pdf-canvas-stage">
+          <div className="pdf-canvas-wrap">
+            <canvas ref={canvasRef} className="pdf-canvas" aria-label={`${title}, page ${currentPage}`} />
+            {pageError && <div className="pdf-canvas-error">{pageError}</div>}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
