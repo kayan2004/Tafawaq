@@ -138,6 +138,17 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
 }
 ```
 
+**Post-implementation correction (recorded after Task 1 actually ran):** the
+code block above, as originally written, did not compile against the
+installed `pdfjs-dist@6.0.227` (`page.render()` requires a `canvas` field;
+`numPages` was unused until Task 2 reads it) and had a real runtime bug — the
+load effect lacked the `cancelled` guard the render effect already had, so
+React 19 StrictMode's dev double-invoke caused every page load (including
+page 1) to hit the `docError` branch via a stale task's "Loading aborted"
+rejection, even though the live task succeeded moments later. The actually
+committed `PdfReader.tsx` (and every later task's code below, already patched)
+adds `cancelled` to the load effect and `canvas` to the `page.render()` call.
+
 - [ ] **Step 3: Add CSS to `frontend/src/styles/pages.css`**
 
 Add directly after the existing `.pdf-line { ... }` rule (the last rule in the dead "PDF components" block, just before the `/* PDF iframe (existing books view) */` comment):
@@ -247,14 +258,19 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
     setNumPages(0);
     setCurrentPage(1);
     setDocError(null);
+    let cancelled = false;
     const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
     loadingTask.promise
       .then((doc) => {
+        if (cancelled) return;
         setPdfDoc(doc);
         setNumPages(doc.numPages);
       })
-      .catch(() => setDocError("Couldn't display this book the usual way."));
-    return () => { loadingTask.destroy(); };
+      .catch(() => {
+        if (cancelled) return;
+        setDocError("Couldn't display this book the usual way.");
+      });
+    return () => { cancelled = true; loadingTask.destroy(); };
   }, [pdfUrl]);
 
   useEffect(() => {
@@ -272,7 +288,7 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
       canvas.height = viewport.height;
 
       renderTaskRef.current?.cancel();
-      const task = page.render({ canvasContext: ctx, viewport });
+      const task = page.render({ canvasContext: ctx, viewport, canvas });
       renderTaskRef.current = task;
       task.promise.catch((err: { name?: string }) => {
         if (err?.name !== "RenderingCancelledException") {
