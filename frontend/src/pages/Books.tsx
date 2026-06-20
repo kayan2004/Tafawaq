@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { getToken, getTextbookPdfBlobUrl } from "../lib/api";
 import { Icons } from "../lib/icons";
 
@@ -22,9 +23,32 @@ type View =
   | { kind: "reader"; pdfUrl: string; book: Book }
   | { kind: "error"; message: string };
 
+type Overlay = { book: Book } | null;
+
+// Must match the CSS transition durations on .book-open-overlay / .book-open-cover.
+const FADE_MS = 180;
+const ROTATE_MS = 520;
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function Books() {
   const [view, setView] = useState<View>({ kind: "library" });
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [coverOpen, setCoverOpen] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const token = getToken()!;
+  const timers = useRef<number[]>([]);
+
+  const schedule = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timers.current.push(id);
+  };
+
+  useEffect(() => {
+    return () => { timers.current.forEach(clearTimeout); };
+  }, []);
 
   // Revoke blob URL on unmount or when leaving reader
   useEffect(() => {
@@ -33,24 +57,45 @@ export function Books() {
     };
   }, [view]);
 
-  const openBook = async (book: Book) => {
+  const openBook = (book: Book) => {
     setView({ kind: "loading" });
-    try {
-      const pdfUrl = await getTextbookPdfBlobUrl(token, book.filename);
-      setView({ kind: "reader", pdfUrl, book });
-    } catch (err) {
-      setView({ kind: "error", message: err instanceof Error ? err.message : "Failed to load book." });
-    }
+    getTextbookPdfBlobUrl(token, book.filename)
+      .then((pdfUrl) => setView({ kind: "reader", pdfUrl, book }))
+      .catch((err) => setView({ kind: "error", message: err instanceof Error ? err.message : "Failed to load book." }));
+
+    if (prefersReducedMotion()) return;
+    setOverlay({ book });
+    setCoverOpen(false);
+    setOverlayVisible(false);
+    requestAnimationFrame(() => setOverlayVisible(true));
+    schedule(() => setCoverOpen(true), FADE_MS);
+    schedule(() => setOverlayVisible(false), FADE_MS + ROTATE_MS);
+    schedule(() => setOverlay(null), FADE_MS + ROTATE_MS + FADE_MS);
   };
 
   const closeBook = () => {
+    const closingBook = view.kind === "reader" ? view.book : null;
     if (view.kind === "reader") URL.revokeObjectURL(view.pdfUrl);
-    setView({ kind: "library" });
+
+    if (!closingBook || prefersReducedMotion()) {
+      setView({ kind: "library" });
+      return;
+    }
+    setOverlay({ book: closingBook });
+    setCoverOpen(true);
+    setOverlayVisible(false);
+    requestAnimationFrame(() => setOverlayVisible(true));
+    schedule(() => setCoverOpen(false), FADE_MS);
+    schedule(() => setView({ kind: "library" }), FADE_MS + ROTATE_MS);
+    schedule(() => setOverlayVisible(false), FADE_MS + ROTATE_MS);
+    schedule(() => setOverlay(null), FADE_MS + ROTATE_MS + FADE_MS);
   };
+
+  let content: ReactNode;
 
   // ── Library ───────────────────────────────────────────────────────────────
   if (view.kind === "library") {
-    return (
+    content = (
       <div className="page">
         <div className="page-head">
           <h1 className="page-title">Books</h1>
@@ -74,11 +119,9 @@ export function Books() {
         </div>
       </div>
     );
-  }
-
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (view.kind === "loading") {
-    return (
+  } else if (view.kind === "loading") {
+    // ── Loading ───────────────────────────────────────────────────────────────
+    content = (
       <div className="page">
         <div className="page-head">
           <div className="sk" style={{ height: 28, width: 220, marginBottom: 8 }} />
@@ -87,11 +130,9 @@ export function Books() {
         <div className="books-loading-msg">Loading book — this may take a moment…</div>
       </div>
     );
-  }
-
-  // ── Error ─────────────────────────────────────────────────────────────────
-  if (view.kind === "error") {
-    return (
+  } else if (view.kind === "error") {
+    // ── Error ─────────────────────────────────────────────────────────────────
+    content = (
       <div className="page">
         <div className="page-head">
           <h1 className="page-title">Books</h1>
@@ -104,24 +145,41 @@ export function Books() {
         </div>
       </div>
     );
+  } else {
+    // ── Reader (PDF viewer) ───────────────────────────────────────────────────
+    const { pdfUrl, book } = view;
+    content = (
+      <div className="books-shell">
+        <div className="books-reader-bar">
+          <button className="btn btn-ghost books-back-btn" onClick={closeBook}>
+            ← Books
+          </button>
+          <div className="books-reader-title">{book.title}</div>
+          <div className="books-reader-sub">{book.subtitle}</div>
+        </div>
+        <iframe
+          className="books-pdf-frame"
+          src={pdfUrl}
+          title={book.title}
+        />
+      </div>
+    );
   }
 
-  // ── Reader (PDF viewer) ───────────────────────────────────────────────────
-  const { pdfUrl, book } = view;
   return (
-    <div className="books-shell">
-      <div className="books-reader-bar">
-        <button className="btn btn-ghost books-back-btn" onClick={closeBook}>
-          ← Books
-        </button>
-        <div className="books-reader-title">{book.title}</div>
-        <div className="books-reader-sub">{book.subtitle}</div>
-      </div>
-      <iframe
-        className="books-pdf-frame"
-        src={pdfUrl}
-        title={book.title}
-      />
-    </div>
+    <>
+      {content}
+      {overlay && (
+        <div className={`book-open-overlay ${overlayVisible ? "is-visible" : ""}`}>
+          <div className="book-open-stage">
+            <div className="book-open-page" />
+            <div className={`book-open-cover ${coverOpen ? "is-open" : ""}`}>
+              <span className="book-open-cover-symbol">∑</span>
+              <span className="book-open-cover-title">{overlay.book.title}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
