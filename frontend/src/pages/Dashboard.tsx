@@ -5,9 +5,10 @@ import { tierOf } from "../lib/ui";
 import { STUDENT, HISTORY, TOPICS } from "../data/mock";
 import type { PageProps } from "../types";
 
-export function Dashboard({ navigate }: PageProps) {
+export function Dashboard({ navigate, userName }: PageProps & { userName: string | null }) {
   const last = HISTORY[0];
   const topFour = [...TOPICS].sort((a, b) => b.count - a.count).slice(0, 4);
+  const firstName = userName?.trim().split(" ")[0] || "Student";
 
   /* ScoreRing: conic-gradient circle — accent arc for score fraction */
   const scorePercent = last.max / 20;
@@ -18,7 +19,7 @@ export function Dashboard({ navigate }: PageProps) {
       {/* Page head — title left, countdown chip right */}
       <div className="page-head">
         <div>
-          <h1 className="page-title">Welcome back, {STUDENT.name.split(" ")[0]}</h1>
+          <h1 className="page-title">Welcome back, {firstName}</h1>
           <p className="page-sub">Two evaluators, one curriculum. Keep the streak going.</p>
         </div>
         <div className="countdown-chip">

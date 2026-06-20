@@ -70,8 +70,9 @@ function renderPage(
   generateRequest: GenerateRequest | null,
   onGenerateConsumed: () => void,
   isDark: boolean,
+  userName: string | null,
 ): ReactNode {
-  if (page === "dashboard") return <Dashboard navigate={props.navigate} />;
+  if (page === "dashboard") return <Dashboard navigate={props.navigate} userName={userName} />;
   if (page === "chat") return <Chat onLogout={onLogout} isAdmin={isAdmin} onCommand={onCommand} isDark={isDark} />;
   if (page === "exam") return <Exam generateRequest={generateRequest} onGenerateConsumed={onGenerateConsumed} />;
   if (page === "books") return <Books />;
@@ -295,7 +296,7 @@ export default function App() {
       )}
 
       <main className={`main ${isChat ? "main-chat" : ""} ${isBooks ? "main-books" : ""}`}>
-        {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, generateRequest, handleGenerateConsumed, theme === "dark")}
+        {renderPage(page, { navigate }, handleLogout, isAdmin, handleCommand, generateRequest, handleGenerateConsumed, theme === "dark", userName)}
       </main>
 
       <nav className="tabbar">
