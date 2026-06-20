@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getToken, getTextbookPdfBlobUrl } from "../lib/api";
 import { Icons } from "../lib/icons";
-import { PdfReader } from "../components/PdfReader";
 
 interface Book {
   title: string;
@@ -158,7 +157,11 @@ export function Books() {
           <div className="books-reader-title">{book.title}</div>
           <div className="books-reader-sub">{book.subtitle}</div>
         </div>
-        <PdfReader pdfUrl={pdfUrl} title={book.title} />
+        <iframe
+          className="books-pdf-frame"
+          src={pdfUrl}
+          title={book.title}
+        />
       </div>
     );
   }
