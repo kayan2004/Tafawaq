@@ -21,6 +21,8 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const activeThumbRef = useRef<HTMLButtonElement>(null);
+  const navSourceRef = useRef<"thumb" | "other">("other");
 
   useEffect(() => {
     setPdfDoc(null);
@@ -83,6 +85,11 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [currentPage, numPages]);
 
+  useEffect(() => {
+    if (navSourceRef.current === "thumb") { navSourceRef.current = "other"; return; }
+    activeThumbRef.current?.scrollIntoView({ block: "nearest" });
+  }, [currentPage]);
+
   if (docError) {
     return (
       <div className="pdf-stage" style={{ alignItems: "center", justifyContent: "center" }}>
@@ -106,6 +113,19 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
         </div>
       </div>
       <div className="pdf-stage">
+        <div className="pdf-rail">
+          {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              ref={n === currentPage ? activeThumbRef : undefined}
+              className={`pdf-thumb${n === currentPage ? " active" : ""}`}
+              onClick={() => { navSourceRef.current = "thumb"; goToPage(n); }}
+            >
+              <span className="pdf-thumb-sheet" />
+              <span>{n}</span>
+            </button>
+          ))}
+        </div>
         <div className="pdf-canvas-stage">
           <div className="pdf-canvas-wrap">
             <canvas ref={canvasRef} className="pdf-canvas" aria-label={`${title}, page ${currentPage}`} />
