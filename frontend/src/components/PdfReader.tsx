@@ -6,6 +6,9 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const BASE_SCALE = 1.4;
+const MIN_ZOOM = 0.6;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.2;
 
 interface PdfReaderProps {
   pdfUrl: string;
@@ -18,6 +21,7 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [docError, setDocError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
@@ -51,7 +55,7 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
 
     pdfDoc.getPage(currentPage).then((page) => {
       if (cancelled || !canvasRef.current) return;
-      const viewport = page.getViewport({ scale: BASE_SCALE });
+      const viewport = page.getViewport({ scale: BASE_SCALE * zoom });
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
@@ -69,7 +73,7 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
     });
 
     return () => { cancelled = true; renderTaskRef.current?.cancel(); };
-  }, [pdfDoc, currentPage]);
+  }, [pdfDoc, currentPage, zoom]);
 
   const goToPage = (n: number) => {
     if (n < 1 || n > numPages) return;
@@ -110,6 +114,11 @@ export function PdfReader({ pdfUrl, title }: PdfReaderProps) {
           <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page">‹</button>
           <span className="pdf-pager-count">{currentPage} <small>/ {numPages || "…"}</small></span>
           <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages} aria-label="Next page">›</button>
+        </div>
+        <div className="pdf-zoom">
+          <button onClick={() => setZoom((z) => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(1)))} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">−</button>
+          <span>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom((z) => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(1)))} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">+</button>
         </div>
       </div>
       <div className="pdf-stage">
