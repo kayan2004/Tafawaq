@@ -516,7 +516,7 @@ async def extract_answers(
         prompt,
         secrets.anthropic_api_key,
         secrets,
-        max_tokens=8192,
+        max_tokens=16000,
         prefill="{",
         trace_name="exam_extract_answers",
         user_id=str(user_id),
